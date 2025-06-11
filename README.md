@@ -17,9 +17,10 @@ For running the simulation, the guide uses a Ubuntu 24.04 installation (the Kubu
 # Installation
 
 ## Ubuntu 22.04
+> This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu flavor]()). If not a guide can be found [here](). The Windows installation guide is next section.
 
 ## Windows (WSL2)
-
+> This section assumes you have installed Windows and WSL2. If not, the guide can be found [here]().
 
 # Set Up
 
