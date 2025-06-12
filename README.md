@@ -2,15 +2,31 @@
 Before testing scripts and commands in the field (with real, and expensive, drones), it is possible to test in virtual environments and simulated vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment, which are then usable in the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and drone setup working using Ardupilot SITL and Gazebo-Harmonic.
 > Note: this guide specifically uses drone models, but other vehicle types can be set up in a similar way.
 
+## Conceptual Plan
+To accomplish the following tasks of:
+* Simulating the drone controller of an arbitrary number of drones.
+* Having these drones run in a 3D environment to afford better visualization and enable machine vision tasks.
+* Being capable to be controlled by various methods, including coding.
+* Generating techniques and scripts that are applicable with real drones.
+
+We will be using several layers of software simulation. Firstly, we will be using the Gazebo simulator to create the 3D environment that the drones will inhabit. Second, to simulate the drone controller (for both metrics gathering and commanding the drone) we will be using Ardupilot's SITL (software in the loop). Third, we will set up the Gazebo-SITL plugin that allows us to have these programs work together. Finally, we will be using DroneKit and Pymavlink to create control scripts for single and multi-uav projects.
+
 ## Pre-requisites
 * A reasonably capable computer (I recommend a multicore CPU, dedicated GPU, and at least 8GB of ram)
 * Ubuntu 22.04 or Windows with WSL2
 > Note: other versions of Ubuntu may also work, but were not tested.
 
+## Software
+
+Gazebo is a popular robotics simulator. It allows for the simulation of detailed vehicles, drones, and robots. These simulations include physics, sensors and cameras, and individual components and motors.
+
+Ardupilot's SITL is a tool that allows us to simulate the inner workings of the drone itself. Sensor data such as GPS location, various status and safety checks, battery level, and more are simulated. Additionally, SITL allows us to use real-world methods (e.g. [Mavlink messages](https://mavlink.io/en/)) to control the drone.
+
+
 # Installation
 
 ## Ubuntu 22.04
-This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu flavor](https://ubuntu.com/desktop/flavors)). If not, a guide can be found [here](https://ubuntu.com/tutorials/install-ubuntu-desktop#1-overview). The Windows installation guide is in the next section.
+This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu 22.04 flavor](https://ubuntu.com/desktop/flavors)). If not, a guide can be found [here](https://ubuntu.com/tutorials/install-ubuntu-desktop#1-overview). The Windows installation guide is in the next section.
 
 ### #1 - Gazebo
 > Note: this section closely follows the official guide, which can be found [here](https://gazebosim.org/docs/harmonic/install_ubuntu/).
