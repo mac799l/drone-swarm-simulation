@@ -3,13 +3,13 @@ Before testing scripts and commands in the field (with real, and expensive, dron
 > Note: this guide specifically uses drone models, but other vehicle types can be set up in a similar way.
 
 ## Conceptual Plan
-To accomplish the following tasks of:
-* Simulating the drone controller of an arbitrary number of drones.
-* Having these drones run in a 3D environment to afford better visualization and enable machine vision tasks.
-* Being capable to be controlled by various methods, including coding.
-* Generating techniques and scripts that are applicable with real drones.
+This guide aims to complete the following tasks:
+* Simulate the drone controller of an arbitrary number of drones.
+* Have these drones run in a 3D environment to afford better visualization and enable machine vision tasks.
+* Be able to control the drones through various methods, including code.
+* Generate techniques and scripts that are applicable to real drones.
 
-We will be using several layers of software simulation. Firstly, we will be using the Gazebo simulator to create the 3D environment that the drones will inhabit. Second, to simulate the drone controller (for both metrics gathering and commanding the drone) we will be using Ardupilot's SITL (software in the loop). Third, we will set up the Gazebo-SITL plugin that allows us to have these programs work together. Finally, we will be using DroneKit and Pymavlink to create control scripts for single and multi-uav projects.
+To accomplish this, we will be using several layers of software simulation. Firstly, we will be using the Gazebo simulator to create the 3D environment that the drones will inhabit. Second, to simulate the drone controller (for both metrics gathering and commanding the drone) we will be using Ardupilot's SITL (software in the loop). Third, we will set up the Gazebo-SITL plugin that allows us to have these programs work together. Finally, we will be using DroneKit and Pymavlink to create control scripts for single and multi-uav projects.
 
 ## Pre-requisites
 * A reasonably capable computer (I recommend a multicore CPU, dedicated GPU, and at least 8GB of ram)
@@ -17,12 +17,17 @@ We will be using several layers of software simulation. Firstly, we will be usin
 > Note: other versions of Ubuntu may also work, but were not tested.
 
 ## Software
+### Gazebo
+Gazebo is a popular robotics simulator. It allows for the simulation of detailed vehicles, drones, and robots. These simulations include physics, sensors and cameras, and even the individual components and motors of your robot.
+<img src="https://github.com/user-attachments/assets/fca8dfa0-4d5b-4d6a-8b07-68a609e6c8dc" width="640" height="360">
+> Gazebo image [source](https://gazebosim.org/showcase)
 
-Gazebo is a popular robotics simulator. It allows for the simulation of detailed vehicles, drones, and robots. These simulations include physics, sensors and cameras, and individual components and motors.
-
+### SITL
 Ardupilot's SITL is a tool that allows us to simulate the inner workings of the drone itself. Sensor data such as GPS location, various status and safety checks, battery level, and more are simulated. Additionally, SITL allows us to use real-world methods (e.g. [Mavlink messages](https://mavlink.io/en/)) to control the drone.
 
+![sitl](https://github.com/user-attachments/assets/4887f7e6-70c2-4b34-8aac-bdccba13c87d)
 
+> SITL image [source](https://ardupilot.org/dev/docs/sitl-simulator-software-in-the-loop.html)
 # Installation
 
 ## Ubuntu 22.04
