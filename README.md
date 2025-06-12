@@ -81,7 +81,7 @@ Once that is completed, some information about the drone should come up in the t
 
 
 ### #3 - Ardupilot Gazebo Plugin
-Ensure dependencies are installed (this may not need to install anything).
+Now we will install the Gazebo plugin that will let us simulate our drone in Gazebo. First, ensure dependencies are installed.
 ```sh
 sudo apt update
 sudo apt install libgz-sim8-dev rapidjson-dev
@@ -121,7 +121,32 @@ gz sim -v4 -r iris_runway.sdf
 This should open a Gazebo project with a single drone on a runway like this:
 PICTURE
 
+Now we have successfully set up the drone environment.
 
+### #4 - Test the Environment
+
+With the previous Gazebo window still open, and in a separate terminal, we will connect to the drone using a SITL instance. In the second terminal, do the following:
+Set the venv-ardupilot virtual Python environment as the source.
+```sh
+source ~/venv-ardupilot/bin/activate
+```
+
+Now create the SITL instance in the second terminal:
+```sh
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --map --console
+```
+
+As before, this should create an instance of Mavproxy in the terminal. After it sets up, press ```Enter``` a few times and you should see ```<STABILIZE>``` pop up. 
+> Note: if desired, you can right click the drone in Gazebo and select for the camera to follow it.
+
+Finally, you can use Mavproxy commands to control the drone:
+```sh
+mode GUIDED
+arm throttle
+takeoff 15
+```
+
+These commands should start your drone (arm) and make it ascend to 15 meters in the Gazebo window. If an error occurs (i.e. the drone is not armable, etc.), then wait a few moments and try again, the drone may still be initializing. Now the drone should be fully functional, though Mavproxy commands are not the preferred way to control the drone long term. More advanced drone control methods - and how to set up multiple drones - are detailed below.
 
 ## Windows (WSL2)
 > This section assumes you have installed Windows and WSL2. If not, the guide can be found [here]().
