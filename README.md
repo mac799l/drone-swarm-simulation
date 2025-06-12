@@ -32,8 +32,7 @@ Ardupilot's SITL is a tool that allows us to simulate the inner workings of the 
 > SITL image [source](https://ardupilot.org/dev/docs/sitl-simulator-software-in-the-loop.html)
 # Installation
 
-## Ubuntu 22.04
-This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu 22.04 flavor](https://ubuntu.com/desktop/flavors)). If not, a guide can be found [here](https://ubuntu.com/tutorials/install-ubuntu-desktop#1-overview). The Windows installation guide is in the next section.
+This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu 22.04 flavor](https://ubuntu.com/desktop/flavors)) either natively or through Windows WSL2. If not, a guide can be found [here](https://ubuntu.com/tutorials/install-ubuntu-desktop#1-overview). The Windows WSL2 installation guide can be found [here](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 ### #1 - Gazebo
 > Note: this section closely follows the official guide, which can be found [here](https://gazebosim.org/docs/harmonic/install_ubuntu/).
@@ -103,7 +102,7 @@ sim_vehicle.py -v ArduCopter --console --map -w
 > Note: this will take some time on the first run. Also, the ```-w``` option is recommended on the first run of SITL as it sets the vehicle parameters to their defaults.
 > Also, the ```-v``` option specifies the vehicle type. For this guide we will be using the ArduCopter vehicle, but others are possible depending on your needs.
 
-Once that is completed, some information about the drone should come up in the terminal (as well as an additional console interface with connection information). The terminal that the ```sim_vehicle.py``` command was run in will start a Mavproxy instance. Pressing enter a few times should display ```<STABILIZE>```. SITL should now be working.
+Once that is completed, some information about the drone should come up in the terminal (as well as an additional console interface with connection information). The terminal that the ```sim_vehicle.py``` command was run in will start a Mavproxy instance. [Mavproxy](https://ardupilot.org/mavproxy/) is a ground control station that communicates with the simulated drone, but its use is not a focus of this guide. Pressing enter a few times should display ```<STABILIZE>```. SITL should now be working.
 
 
 ### #3 - Ardupilot Gazebo Plugin
@@ -173,6 +172,7 @@ mode GUIDED
 arm throttle
 takeoff 15
 ```
+> Learn more about Mavproxy [here](https://ardupilot.org/mavproxy/).
 
 These commands should start your drone motors (arm) and make it ascend to 15 meters in the Gazebo window. If an error occurs (i.e. the drone is not armable, etc.), then wait a few moments and try again, the drone may still be initializing. Now the drone should be fully functional, though Mavproxy commands are not the preferred way to control the drone long term. More advanced drone control methods - and how to set up multiple drones - are detailed below.
 
