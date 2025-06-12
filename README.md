@@ -1,6 +1,6 @@
 # Drone Swarm Control Using SITL and Gazebo
 Before testing scripts and commands in the field (with real, and expensive, drones), it is possible to test in virtual environments and simulated vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment, which are then usable in the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and drone setup working using Ardupilot SITL and Gazebo-Harmonic.
-> Note: this guide specifically uses drone models and simulations, but others vehicle types can be set up in a similar way.
+> Note: this guide specifically uses drone models, but other vehicle types can be set up in a similar way.
 
 ## Pre-requisites
 * A reasonably capable computer (I recommend a multicore CPU, dedicated GPU, and at least 8GB of ram)
@@ -32,18 +32,23 @@ Run Gazebo:
 ```sh
 gz sim -v4 -r shapes.sdf
 ```
-> The -v4 option prints debugging information to the console.
+> * gz is calling the Gazebo installation.
+> * sim specifies the Gazebo mode.
+> * The -v4 option prints debugging information to the console.
+> * -r name.sdf specifies the environment to load.
 
 This command should open Gazebo with a window like this:
 ADD PICTURE
 
-> Note: if the windows fails to open, check the output of the debug menu. If it reads
+> Note: if the windows fails to open, check the debug information from the console you started Gazebo in. If it reads
 > ```[GUI] [Dbg] [Gui.cc:343] GUI requesting list of world names. The server may be busy downloading resources. Please be patient.```
 > Then the issue is with your firewall configuration. To correct the issue, run the following commands to allow Gazebo through the firewall:
 > ```sh
 > sudo ufw allow in proto udp to 224.0.0.0/4
 > sudo ufw allow in proto udp from 224.0.0.0/4
 > ```
+
+Now you have a fully-functioning Gazebo installation. But more configuration work will be required to make it work with SITL and simulate drones.
 
 ### SITL
 Once the repository has been cloned, and the setup script has been run, the next step is to build the vehicle. To do this, you will need to connect to the python virtual environment first:
