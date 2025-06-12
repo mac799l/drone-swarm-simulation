@@ -1,18 +1,11 @@
 # Drone Swarm Control Using SITL and Gazebo
-This is a code base and setup guide for Software in the Loop (SITL) virtual drone swarm control research using Gazebo-Harmonic (TODO: or Airsim).
-
-## Background
-Before testing scripts and commands in the field (with real, and expensive, drones), it is a good idea to create virtual environments and simulated vehicles first. The end goal is to test scripts, code, and techniques which are then usable in the real world with actual drones. To that end, this guide will follow the process of getting such a setup working using SITL and Gazebo-Harmonic.
-> Note: this guide specifically uses drone models and simulations, but others vehicle types can be set up similarly.
+Before testing scripts and commands in the field (with real, and expensive, drones), it is possible to test in virtual environments and simulated vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment, which are then usable in the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and drone setup working using Ardupilot SITL and Gazebo-Harmonic.
+> Note: this guide specifically uses drone models and simulations, but others vehicle types can be set up in a similar way.
 
 ## Pre-requisites
-
-### Recommended Specifications
-
-### Ubuntu 22.04
-
-For running the simulation, the guide uses a Ubuntu 24.04 installation (the Kubuntu offical flavor) installed natively, but Windows can also be used by leveraging WSL2 (Windows Subsystem for Linux 2).
-
+* A reasonably capable computer (I recommend a multicore CPU, dedicated GPU, and at least 8GB of ram)
+* Ubuntu 22.04 or Windows with WSL2
+> Note: other versions of Ubuntu may also work, but were not tested.
 
 # Installation
 
@@ -20,16 +13,50 @@ For running the simulation, the guide uses a Ubuntu 24.04 installation (the Kubu
 > This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu flavor]()). If not a guide can be found [here](). The Windows installation guide is in the next section.
 
 ### Gazebo
-> Note: this section closely follows the official guide, which can be found [here]().
+> Note: this section closely follows the official guide, which can be found [here](https://gazebosim.org/docs/harmonic/install_ubuntu/).
+
+Ensure Ubuntu is up to date and install necessary packages:
+```sh
+sudo apt-get update
+sudo apt-get install curl lsb-release gnupg
+```
+Install Gazebo:
+```sh
+sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+sudo apt-get update
+sudo apt-get install gz-harmonic
+```
+
+Run Gazebo:
+```sh
+gz sim -v4 -r shapes.sdf
+```
+> The -v4 option prints debugging information to the console.
+
+This command should open Gazebo with a window like this:
+ADD PICTURE
+
+> Note: if the windows fails to open, check the output of the debug menu. If it reads
+> ```[GUI] [Dbg] [Gui.cc:343] GUI requesting list of world names. The server may be busy downloading resources. Please be patient.```
+> Then the issue is with your firewall configuration. To correct the issue, run the following commands to allow Gazebo through the firewall:
+> ```sh
+> sudo ufw allow in proto udp to 224.0.0.0/4
+> sudo ufw allow in proto udp from 224.0.0.0/4
+> ```
 
 ### SITL
 Once the repository has been cloned, and the setup script has been run, the next step is to build the vehicle. To do this, you will need to connect to the python virtual environment first:
 
-```sh source ~/venv-ardupilot/bin/activate ```
+```sh 
+source ~/venv-ardupilot/bin/activate
+```
 
 This ensures that you are using the Python virtual environment created by Ardupilot. Now, run the following command to generate a copter drone:
 
-```sh sim_vehicle.py -v ArduCopter ```
+```sh 
+sim_vehicle.py -v ArduCopter
+```
 
 > On the first run this will compile the vehicle and may take some time.
 
