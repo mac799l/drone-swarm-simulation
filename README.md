@@ -13,13 +13,15 @@ To accomplish this, we will be using several layers of software simulation. Firs
 
 ## Pre-requisites
 * A reasonably capable computer (I recommend a multicore CPU, dedicated GPU, and at least 8GB of ram)
-* Ubuntu 22.04 or Windows with WSL2
+* Ubuntu 22.04 or Windows with WSL2 (with Ubuntu installed)
 > Note: other versions of Ubuntu may also work, but were not tested.
 
 ## Software
 ### Gazebo
 Gazebo is a popular robotics simulator. It allows for the simulation of detailed vehicles, drones, and robots. These simulations include physics, sensors and cameras, and even the individual components and motors of your robot.
+
 <img src="https://github.com/user-attachments/assets/fca8dfa0-4d5b-4d6a-8b07-68a609e6c8dc" width="640" height="360">
+
 > Gazebo image [source](https://gazebosim.org/showcase)
 
 ### SITL
@@ -36,9 +38,10 @@ This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu 22.
 ### #1 - Gazebo
 > Note: this section closely follows the official guide, which can be found [here](https://gazebosim.org/docs/harmonic/install_ubuntu/).
 
-Ensure Ubuntu is up to date and install needed packages:
+First, open a terminal and ensure Ubuntu is up to date, then install needed packages:
 ```sh
 sudo apt-get update
+sudo apt-get upgrade
 sudo apt-get install curl lsb-release gnupg
 ```
 Install Gazebo:
@@ -98,6 +101,7 @@ Now that we are using the Python environment, we can finally run a SITL instance
 sim_vehicle.py -v ArduCopter --console --map -w
 ```
 > Note: this will take some time on the first run. Also, the ```-w``` option is recommended on the first run of SITL as it sets the vehicle parameters to their defaults.
+> Also, the ```-v``` option specifies the vehicle type. For this guide we will be using the ArduCopter vehicle, but others are possible depending on your needs.
 
 Once that is completed, some information about the drone should come up in the terminal (as well as an additional console interface with connection information). The terminal that the ```sim_vehicle.py``` command was run in will start a Mavproxy instance. Pressing enter a few times should display ```<STABILIZE>```. SITL should now be working.
 
@@ -140,7 +144,7 @@ Finally, run Gazebo again, but this time with a project provided by the Ardupilo
 ```sh
 gz sim -v4 -r iris_runway.sdf
 ```
-> Note: if the '''gz sim -v4 -r iris_runway.sdf''' command does not work, a system restart may be needed.
+> Note: if the ```gz sim -v4 -r iris_runway.sdf``` command does not work, a system restart may be needed.
 
 This should open a Gazebo project with a single drone on a runway like this:
 PICTURE
@@ -149,7 +153,7 @@ Now we have successfully set up the drone environment.
 
 ### #4 - Test the Environment
 
-With the previous Gazebo window still open, and in a separate terminal, we will connect to the drone using a SITL instance. In the second terminal, do the following:
+With the previous Gazebo window still open, and in a separate terminal, we will connect to the drone using a SITL instance. In a second terminal, do the following:
 Set the venv-ardupilot virtual Python environment as the source.
 ```sh
 source ~/venv-ardupilot/bin/activate
@@ -160,17 +164,17 @@ Now create the SITL instance in the second terminal:
 sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --map --console
 ```
 
-As before, this should create an instance of Mavproxy in the terminal. After it sets up, press ```Enter``` a few times and you should see ```<STABILIZE>``` pop up. 
-> Note: if desired, you can right click the drone in Gazebo and select for the camera to follow it.
+As before, this should create an instance of Mavproxy in the terminal. This should automatically connect to the Gazebo environment. After it sets up, press ```Enter``` a few times and you should see ```<STABILIZE>``` pop up. 
+> Note: if desired, you can right click the drone in Gazebo and select for the viewport camera to follow it.
 
-Finally, you can use these Mavproxy commands (one at a time) to control the drone:
+Finally, you can use these Mavproxy commands (one at a time) to make the drone takeoff:
 ```sh
 mode GUIDED
 arm throttle
 takeoff 15
 ```
 
-These commands should start your drone (arm) and make it ascend to 15 meters in the Gazebo window. If an error occurs (i.e. the drone is not armable, etc.), then wait a few moments and try again, the drone may still be initializing. Now the drone should be fully functional, though Mavproxy commands are not the preferred way to control the drone long term. More advanced drone control methods - and how to set up multiple drones - are detailed below.
+These commands should start your drone motors (arm) and make it ascend to 15 meters in the Gazebo window. If an error occurs (i.e. the drone is not armable, etc.), then wait a few moments and try again, the drone may still be initializing. Now the drone should be fully functional, though Mavproxy commands are not the preferred way to control the drone long term. More advanced drone control methods - and how to set up multiple drones - are detailed below.
 
 
 ## Single Drone
