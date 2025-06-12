@@ -48,6 +48,7 @@ ADD PICTURE
 Now you have a fully-functioning Gazebo installation. But more configuration work will be required to make it work with SITL and simulate drones.
 
 ### #2 - SITL
+> Note: this section closely follows the official guide, which can be found [here](https://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html).
 
 Now to install Ardupilot SITL which will simulate the drone controller. The first step is to ensure that git is installed:
 ```sh
@@ -81,6 +82,8 @@ Once that is completed, some information about the drone should come up in the t
 
 
 ### #3 - Ardupilot Gazebo Plugin
+> Note: this section closely follows the official guide, which can be found [here](https://ardupilot.org/dev/docs/sitl-with-gazebo.html).
+
 Now we will install the Gazebo plugin that will let us simulate our drone in Gazebo. First, ensure dependencies are installed.
 ```sh
 sudo apt update
