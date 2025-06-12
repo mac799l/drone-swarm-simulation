@@ -28,19 +28,16 @@ sudo apt-get update
 sudo apt-get install gz-harmonic
 ```
 
-Run Gazebo:
+Run Gazebo and use the provided shapes.sdf environment:
 ```sh
 gz sim -v4 -r shapes.sdf
 ```
-> * gz is calling the Gazebo installation.
-> * sim specifies the Gazebo mode.
-> * The -v4 option prints debugging information to the console.
-> * -r name.sdf specifies the environment to load.
+> The ```-v4``` option prints debugging information to the terminal.
 
 This command should open Gazebo with a window like this:
 ADD PICTURE
 
-> Note: if the windows fails to open, check the debug information from the console you started Gazebo in. If it reads
+> Note: if the window fails to open, check the debug information from the terminal you started Gazebo in. If it reads
 > ```[GUI] [Dbg] [Gui.cc:343] GUI requesting list of world names. The server may be busy downloading resources. Please be patient.```
 > Then the issue is with your firewall configuration. To correct the issue, run the following commands to allow Gazebo through the firewall:
 > ```sh
@@ -74,13 +71,13 @@ The next step is to build the vehicle. To do this, you will need to connect to t
 source ~/venv-ardupilot/bin/activate
 ```
 
-Finally, run a SITL instance:
+Now that we are using the Python environment, we can finally run a SITL instance:
 ```sh
 sim_vehicle.py -v ArduCopter --console --map -w
 ```
-> Note: this will take some time the first time it is run.
+> Note: this will take some time on the first run. Also, the ```-w``` option is recommended on the first run of SITL as it sets the vehicle parameters to their defaults.
 
-Once that is completed, some information about the drone should come up in the console (as well as an additional console interface with connection information). SITL should now be working.
+Once that is completed, some information about the drone should come up in the terminal (as well as an additional console interface with connection information). The terminal that the ```sim_vehicle.py``` command was run in will start a Mavproxy instance. Pressing enter a few times should display ```<STABILIZE>```. SITL should now be working.
 
 
 ### #3 - Ardupilot Gazebo Plugin
