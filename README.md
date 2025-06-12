@@ -58,7 +58,9 @@ gz sim -v4 -r shapes.sdf
 > The ```-v4``` option prints debugging information to the terminal.
 
 This command should open Gazebo with a window like this:
-ADD PICTURE
+
+<img src="https://github.com/user-attachments/assets/8ef2dcf4-07ae-464d-af67-d88400c01d89" width="808" height="700">
+
 
 > Note: if the window fails to open, check the debug information from the terminal you started Gazebo in. If it reads
 > ```[GUI] [Dbg] [Gui.cc:343] GUI requesting list of world names. The server may be busy downloading resources. Please be patient.```
