@@ -10,12 +10,12 @@ Before testing scripts and commands in the field (with real, and expensive, dron
 # Installation
 
 ## Ubuntu 22.04
-> This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu flavor]()). If not a guide can be found [here](). The Windows installation guide is in the next section.
+This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu flavor](https://ubuntu.com/desktop/flavors)). If not, a guide can be found [here](https://ubuntu.com/tutorials/install-ubuntu-desktop#1-overview). The Windows installation guide is in the next section.
 
-### Gazebo
+### #1 - Gazebo
 > Note: this section closely follows the official guide, which can be found [here](https://gazebosim.org/docs/harmonic/install_ubuntu/).
 
-Ensure Ubuntu is up to date and install necessary packages:
+Ensure Ubuntu is up to date and install needed packages:
 ```sh
 sudo apt-get update
 sudo apt-get install curl lsb-release gnupg
@@ -50,33 +50,51 @@ ADD PICTURE
 
 Now you have a fully-functioning Gazebo installation. But more configuration work will be required to make it work with SITL and simulate drones.
 
-### SITL
-Once the repository has been cloned, and the setup script has been run, the next step is to build the vehicle. To do this, you will need to connect to the python virtual environment first:
+### #2 - SITL
+
+Now to install Ardupilot SITL which will simulate the drone controller. The first step is to ensure that git is installed:
+```sh
+sudo apt-get update
+sudo apt-get install git
+```
+Now clone the SITL repository from git and go into that directory:
+```sh
+git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
+cd ardupilot
+```
+The next step is to run the setup script for SITL:
+```sh
+Tools/environment_install/install-prereqs-ubuntu.sh -y
+```
+This script will take some time to complete, but performs all of the necessary setup for us. After that is complete, __log out and log back in__ to finalize the process.
+
+The next step is to build the vehicle. To do this, you will need to connect to the python virtual environment first:
 
 ```sh 
 source ~/venv-ardupilot/bin/activate
 ```
 
-This ensures that you are using the Python virtual environment created by Ardupilot. Now, run the following command to generate a copter drone:
-
-```sh 
-sim_vehicle.py -v ArduCopter
+Finally, run a SITL instance:
+```sh
+sim_vehicle.py -v ArduCopter --console --map -w
 ```
-
-> On the first run this will compile the vehicle and may take some time.
+> Note: this will take some time the first time it is run.
 
 Once that is completed, some information about the drone should come up in the console (as well as an additional console interface with connection information). SITL should now be working.
 
-### Ardupilot Plugin
+
+### #3 - Ardupilot Gazebo Plugin
 Ensure dependencies are installed (this may not need to install anything).
 ```sh
 sudo apt update
 sudo apt install libgz-sim8-dev rapidjson-dev
 sudo apt install libopencv-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-gl
 ```
+> Note: this may or may not actually install anything, depending on which libraries were already installed on your system.
 
-Create a directory for the plugin and clone the repository:
+Create a folder in the home directory for the plugin and clone the Gazebo plugin repository into it:
 ```sh
+cd ~
 mkdir -p gz_ws/src && cd gz_ws/src
 git clone https://github.com/ArduPilot/ardupilot_gazebo
 ```
@@ -96,7 +114,16 @@ Configure environment variables so Gazebo can access the plugin:
 echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=$HOME/gz_ws/src/ardupilot_gazebo/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}' >> ~/.bashrc
 echo 'export GZ_SIM_RESOURCE_PATH=$HOME/gz_ws/src/ardupilot_gazebo/models:$HOME/gz_ws/src/ardupilot_gazebo/worlds:${GZ_SIM_RESOURCE_PATH}' >> ~/.bashrc
 ```
-> Note: if the '''gz sim''' command does not work, a system restart may be needed.
+
+Finally, run Gazebo again, but this time with a project provided by the Ardupilot plugin:
+```sh
+gz sim -v4 -r iris_runway.sdf
+```
+> Note: if the '''gz sim -v4 -r iris_runway.sdf''' command does not work, a system restart may be needed.
+
+This should open a Gazebo project with a single drone on a runway like this:
+PICTURE
+
 
 
 ## Windows (WSL2)
