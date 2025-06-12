@@ -148,26 +148,22 @@ takeoff 15
 
 These commands should start your drone (arm) and make it ascend to 15 meters in the Gazebo window. If an error occurs (i.e. the drone is not armable, etc.), then wait a few moments and try again, the drone may still be initializing. Now the drone should be fully functional, though Mavproxy commands are not the preferred way to control the drone long term. More advanced drone control methods - and how to set up multiple drones - are detailed below.
 
-## Windows (WSL2)
+
+## Single Drone
 > This section assumes you have installed Windows and WSL2. If not, the guide can be found [here]().
 
-# Set Up
+### DroneKit
 
-## Python Virtual Environment
-
-## Gazebo-Harmonic
-
-## Ardupilot SITL
+### Pymavlink
 
 
-# Configuration
+## Multiple Drones
 
-## Gazebo
+### Configuration
 
-## SITL
+### DroneKit
 
+### Pymavlink
 
-# Running The Simulation
-
-## Ardupilot Commands
+## Gazebo Cameras
 
