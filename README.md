@@ -139,7 +139,7 @@ sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --map --console
 As before, this should create an instance of Mavproxy in the terminal. After it sets up, press ```Enter``` a few times and you should see ```<STABILIZE>``` pop up. 
 > Note: if desired, you can right click the drone in Gazebo and select for the camera to follow it.
 
-Finally, you can use Mavproxy commands to control the drone:
+Finally, you can use these Mavproxy commands (one at a time) to control the drone:
 ```sh
 mode GUIDED
 arm throttle
@@ -150,7 +150,6 @@ These commands should start your drone (arm) and make it ascend to 15 meters in 
 
 
 ## Single Drone
-> This section assumes you have installed Windows and WSL2. If not, the guide can be found [here]().
 
 ### DroneKit
 
