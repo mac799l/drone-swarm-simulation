@@ -178,10 +178,33 @@ takeoff 15
 
 These commands should start your drone motors (arm) and make it ascend to 15 meters in the Gazebo window. If an error occurs (i.e. the drone is not armable, etc.), then wait a few moments and try again, the drone may still be initializing. Now the drone should be fully functional, though Mavproxy commands are not the preferred way to control the drone long term. More advanced drone control methods - and how to set up multiple drones - are detailed below.
 
+## Python Virtual Environment Setup
+Now to set up the Python virtual environment so we can run some code. To do this ensure you are connected to the venv-ardupilot virtual environment:
+```sh
+source ~/venv-ardupilot/bin/activate
+```
+
+Now, ensure the following packages are installed:
+
+```sh
+pip install pymavlink dronekit MAVProxy
+```
 
 ## Single Drone
+In order to test a single drone, no additional configuration is required, so you can just run the previous commands. However, in order to test using the provided single drone script, some additional options need to be specified.
+
+Run Gazebo:
+gz sim -v4 -r iris_runway.sdf
+
+Run SITL, but add the ```--out``` option to specify a forwarding IP and port for our code to connect to:
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --out udp:127.0.0.1:14550
+
+Now you can run the provided code as follows (while connected to the ardupilot virtual environment as source):
+python single_uav_script.py --connect udp:127.0.0.1:14550
 
 ### DroneKit
+
+
 
 ### Pymavlink
 
