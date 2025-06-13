@@ -187,7 +187,7 @@ source ~/venv-ardupilot/bin/activate
 Now, ensure the following packages are installed:
 
 ```sh
-pip install pymavlink dronekit MAVProxy
+pip install pymavlink dronekit MAVProxy pymavlink
 ```
 
 ## Single Drone
@@ -204,18 +204,40 @@ python single_uav_script.py --connect udp:127.0.0.1:14550
 
 ### DroneKit
 
-
-
-### Pymavlink
-
+The Dronekit code provided creates a drone class various simple commands that can be called on the drone object. The default main function simply makes the drone fly Northeast, then Northwest, and finally returns to the home location of the drone (saved as the takeoff location) and lands.
 
 ## Multiple Drones
+> Note: this section is a modified version of the guide found [here](https://github.com/monemati/multiuav-gazebo-simulation).
+In order to run multiple drones in Gazebo, some additional modifications need to be made. Firstly, go to your Gazebo models folder:
 
-### Configuration
+```sh
+cd gz_ws/src/ardupilot_gazebo/models/
+```
+
+Now, you should see several vehicle model folders. Copy the ```iris_with_gimbal``` model for as many drones as you wish to create (I recommend leaving the original folder unaltered and creating ```iris_with_gimbal_x``` folders for each drone to be simulated).
+
+> Note: I have provided the models folder with the additional four folders for the drones, which can be copied to the models directory to save time.
+
+```sh
+cp iris_with_gimbal iris_with_gimbal_1
+```
+
+Now, within each new ```iris_with_gimbal_x``` folder, change the ```<model name="iris_with_gimbal">``` option to ```<model name="iris_with_gimbal_X">``` where X is the number of the drone matching the folder name. Also, note the section ```<plugin name="ArduPilotPlugin"```. It should look something like this:
+
+```
+<plugin name="ArduPilotPlugin"
+  <!-- Port settings -->
+  <fdm_addr>127.0.0.1</fdm_addr>
+  <fdm_port_in>9002</fdm_port_in>
+```
+For each subsequent drone (but not the first one), we will need to change the ```<fdm_port_in>``` option to a value that is __+10__. That is: drone #1 will be ```9002```, drone #2 will be ```9012```, and so on. Additionally, for each new drone (after the first one), we will want to change the position of the drone in the Gazebo world. To do that, simply modify this field:
+
+
+
+### Running the Simulation.
 
 ### DroneKit
-
-### Pymavlink
+The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals. The script has each drone fly away from the starting position in a different direction and then return the GPS coordinate of its home and land, much like the single-uav script. However, the script also implements multithreading to make the operation of each drone happen simulataneously, as well as adding new function for the operation of each drone, so they can be operated using separate commands.
 
 ## Gazebo Cameras
-
+> To be added at a later date.
