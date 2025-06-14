@@ -278,14 +278,21 @@ gz sim -v4 -r iris_runway.sdf
 ```
 
 To run the code, open a new terminal for each drone. Now, with the Python virtual environment set as the source in each window, create the SITL instance and connect them to Gazebo:
-```
+
 In terminal #1:
+```
 sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I0 --out udp:127.0.0.1:14550
+```
 In terminal #2:
+```
 sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I2 --out udp:127.0.0.1:14560
+```
 In terminal #3:
+```
 sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I2 --out udp:127.0.0.1:14570
+```
 In terminal #4:
+```
 sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I3 --out udp:127.0.0.1:14580
 ```
 
