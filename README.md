@@ -230,14 +230,73 @@ Now, within each new ```iris_with_gimbal_x``` folder, change the ```<model name=
   <fdm_addr>127.0.0.1</fdm_addr>
   <fdm_port_in>9002</fdm_port_in>
 ```
-For each subsequent drone (but not the first one), we will need to change the ```<fdm_port_in>``` option to a value that is __+10__. That is: drone #1 will be ```9002```, drone #2 will be ```9012```, and so on. Additionally, for each new drone (after the first one), we will want to change the position of the drone in the Gazebo world. To do that, simply modify this field:
+For each subsequent drone (but not the first one), we will need to change the ```<fdm_port_in>``` option to a value that is __+10__. That is: drone #1 will be ```9002```, drone #2 will be ```9012```, and so on. Additionally, we will need to modify the world (environment) to add the new drones. To do this, go to the ```~/gz_ws/src/ardupilot_gazebo/worlds``` folder and copy the following file:
 
+```sh
+cp iris_runway.sdf iris_runway.sdf.bak
+```
 
+Now, edit the ```iris_runway.sdf``` file to include the other drones. For each drone, ensure the following lines are present at the end of the file:
+
+```
+<include>
+  <uri>model://iris_with_gimbal_X</uri>
+  <pose degrees="true">-10 0 0.195 0 0 90</pose>
+</include>
+```
+
+Where ```X``` is the drone you are adding (from the name of the model folders copied earlier). Also, be sure to alter the ```<pose degrees="">``` values to change the starting position of the drones (the first three parameters are the X, Y, and Z coordinates, while the last three are the rotation). For example, for four drones, the code would be:
+
+```
+<include>
+  <uri>model://iris_with_gimbal_1</uri>
+  <pose degrees="true">-10 0 0.195 0 0 90</pose>
+</include>
+<include>
+  <uri>model://iris_with_gimbal_2</uri>
+  <pose degrees="true">0 0 0.195 0 0 90</pose>
+</include>
+<include>
+  <uri>model://iris_with_gimbal_3</uri>
+  <pose degrees="true">10 0 0.195 0 0 90</pose>
+</include>
+<include>
+  <uri>model://iris_with_gimbal_4</uri>
+  <pose degrees="true">20 0 0.195 0 0 90</pose>
+</include>
+```
 
 ### Running the Simulation.
 
 ### DroneKit
 The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals. The script has each drone fly away from the starting position in a different direction and then return the GPS coordinate of its home and land, much like the single-uav script. However, the script also implements multithreading to make the operation of each drone happen simulataneously, as well as adding new function for the operation of each drone, so they can be operated using separate commands.
+
+Now we can launch Gazebo with the new environment (recall that we didn't change the name):
+
+```sh
+gz sim -v4 -r iris_runway.sdf
+```
+
+To run the code, open a new terminal for each drone. Now, with the Python virtual environment set as the source in each window, create the SITL instance and connect them to Gazebo:
+```
+In terminal #1:
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I0 --out udp:127.0.0.1:14550
+In terminal #2:
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I2 --out udp:127.0.0.1:14560
+In terminal #3:
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I2 --out udp:127.0.0.1:14570
+In terminal #4:
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I3 --out udp:127.0.0.1:14580
+```
+
+Now, in another terminal, go to the directory with the ```multi_uav_script.py``` and the ```connection.txt``` files and run the following command:
+
+```sh
+python multi_uav_script.py
+```
+> Remember to have the ```venv_ardupilot``` virtual environment set as the source.
+
+Now the drones should takeoff, go in different directions and then return to the starting position.
 
 ## Gazebo Cameras
 > To be added at a later date.
