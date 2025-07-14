@@ -350,10 +350,10 @@ This is the part of the sdf file that includes the gimbal model. Furthermore, th
 </plugin>
 
 '''
-#### Using
-The '''GstCameraPlugin''' is what we will access the camera feed from - using Gstreamer. Note the '''<udp_port>5600</udp_port>''' option. Since we need a unique port for each camera, we will need each drone to reference a unique gimbal (the camera plugin is attached to the gimbal, which is then attached to the drone). To do this, create copies of the '''gimbal_small_3d''' folder like we did with the '''iris_with_gimbal''' folders until you have '''gimbal_small_3d_1''', '''gimbal_small_3d_2''', etc. for each drone you plan to use. You don't have to change the model name inside each gimbal folder.
 
-Now, in each of your '''iris_with_gimbal_x''' folders, include the correct gimbal to match the folder name of the respective:
+The '''GstCameraPlugin''' is what streams the camera feed using [Gstreamer](https://gstreamer.freedesktop.org/). Note the '''<udp_port>5600</udp_port>''' option. Since we need a unique port for each camera (or different IPs), we will need each drone to reference a unique gimbal (since the camera plugin is attached to the gimbal, which is attached to the drone). To do this, create copies of the '''gimbal_small_3d''' folder like we did with the '''iris_with_gimbal''' folders until you have '''gimbal_small_3d_1''', '''gimbal_small_3d_2''', etc. for each drone you plan to use. You don't have to change the model name inside each gimbal folder.
+
+Now, in each of your '''iris_with_gimbal_x''' folders, include the correct gimbal to match the folder name of the respective drone:
 
 In iris_with_gimbal_1:
 '''
@@ -368,7 +368,7 @@ In iris_with_gimbal_2:
 '''
 <include>
   <uri>model://gimbal_small_3d_2</uri>                                                                                                                                                                                              
-  <name>gimbal</name>
+  <name>gimbal_2</name>
   <pose degrees="true">0 -0.01 -0.124923 90 0 90</pose>
 </include>
 '''
@@ -405,4 +405,15 @@ In gimbal_small_3d_2:
 and so on...
 
 
-Alternatively, if you need to send the camera feed to different ip addresses, you can edit the '''<udp_host>127.0.0.1</udp_host>''' parameter. Now the cameras should be set up
+> If you need to send the camera feed to different ip addresses, you can edit the '''<udp_host>127.0.0.1</udp_host>''' parameter to the IP of the device you want to access the stream. Now the cameras should be set up.
+
+#### Testing the Cameras
+
+> This section is an expansion of the official Ardupilot Gazebo Plugin [README](https://github.com/ArduPilot/ardupilot_gazebo).
+
+A simple way to test the camera streams is to use Gstreamer directly. In order to do this, you can install Gstreamer by following the instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c).
+
+
+
+
+
