@@ -205,12 +205,18 @@ Run Gazebo same as before:
 gz sim -v4 -r iris_runway.sdf
 
 Run SITL, but add the ```--out``` option to specify a forwarding IP and port for our code to connect to:
-sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --out udp:127.0.0.1:14550
 
-> Note: '''--map''' and '''--console'' can be added back if desired.
+```sh
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --out udp:127.0.0.1:14550
+```
+
+> Note: ```--map``` and ```--console``` can be added back if desired.
 
 Now you can run the provided code as follows (while connected to the ardupilot virtual environment as source):
+
+```sh
 python single_uav_script.py --connect udp:127.0.0.1:14550
+```
 
 ### DroneKit
 
@@ -225,7 +231,7 @@ In order to run multiple drones in Gazebo, some additional modifications need to
 cd gz_ws/src/ardupilot_gazebo/models/
 ```
 
-Now, you should see several vehicle model folders. Copy the ```iris_with_gimbal``` model for as many drones as you wish to create. I recommend leaving the original folder unaltered and creating ```iris_with_gimbal_x``` folders for each drone to be simulated (i.e. '''iris_with_gimbal_1''' and '''iris_with_gimbal_2''' and so on).
+Now, you should see several vehicle model folders. Copy the ```iris_with_gimbal``` model for as many drones as you wish to create. I recommend leaving the original folder unaltered and creating ```iris_with_gimbal_x``` folders for each drone to be simulated (i.e. ```iris_with_gimbal_1``` and ```iris_with_gimbal_2``` and so on).
 
 > Note: I have also provided a models folder with four models for the drones, which can be copied to your models directory to save time.
 
@@ -233,7 +239,7 @@ Now, you should see several vehicle model folders. Copy the ```iris_with_gimbal`
 cp iris_with_gimbal iris_with_gimbal_1
 ```
 
-Now, within each new ```iris_with_gimbal_x``` folder, change the ```<model name="iris_with_gimbal">``` option to ```<model name="iris_with_gimbal_X">``` where '''X''' is the number of the drone matching the folder name. Also, note the section ```<plugin name="ArduPilotPlugin"```. It should look something like this:
+Now, within each new ```iris_with_gimbal_x``` folder, change the ```<model name="iris_with_gimbal">``` option to ```<model name="iris_with_gimbal_X">``` where ```X``` is the number of the drone matching the folder name. Also, note the section ```<plugin name="ArduPilotPlugin"```. It should look something like this:
 
 ```
 <plugin name="ArduPilotPlugin"
@@ -282,7 +288,7 @@ Where ```X``` is the drone you are adding (from the name of the model folders co
 ## Running the Swarm Simulation.
 
 ### DroneKit
-The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four drones). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals below. The script has each drone fly away from the starting position in a different direction and then return the GPS coordinate of its home and land, much like the single-uav script. However, the script also implements multithreading to make the operation of each drone happen simulataneously. Each drone is controlled by its respective '''drone_control''' function.
+The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four drones). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals below. The script has each drone fly away from the starting position in a different direction and then return the GPS coordinate of its home and land, much like the single-uav script. However, the script also implements multithreading to make the operation of each drone happen simulataneously. Each drone is controlled by its respective ```drone_control``` function.
 
 Now we can launch Gazebo with the new environment (recall that we didn't change the name):
 
@@ -318,11 +324,11 @@ python multi_uav_script.py
 ```
 > Remember to have the ```venv_ardupilot``` virtual environment set as the source.
 
-Now the drones should takeoff, go in different directions and then return to the starting position. It is possible to create all the SITL instances from a single sim_vehicle.py command using '''--count''' command, but it caused issues with my multi-uav script, so I currently recommend using seperate terminals if you use my script.
+Now the drones should takeoff, go in different directions and then return to the starting position. It is possible to create all the SITL instances from a single sim_vehicle.py command using ```--count``` command, but it caused issues with my multi-uav script, so I currently recommend using seperate terminals if you use my script.
 
 ## Gazebo Drone Cameras
 
-Thankfully, the drone models already include a Gazebo camera and the camera feeds can be accessed directly from Gazebo by opening up the '''Image Display''' tab (click the three dots on the top right of the window and find the '''Image Display''' option). If you have multiple drones in the environment, you can view each camera by switching between them in the drop down menu of the Image Display tab.
+Thankfully, the drone models already include a Gazebo camera and the camera feeds can be accessed directly from Gazebo by opening up the ```Image Display``` tab (click the three dots on the top right of the window and find the ```Image Display``` option). If you have multiple drones in the environment, you can view each camera by switching between them in the drop down menu of the Image Display tab.
 
 <img width="720" height="480" alt="Screenshot_20250714_131243" src="https://github.com/user-attachments/assets/ff43683f-ed3f-4696-b713-ef37b3ed4e5a" />
 
