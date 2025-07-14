@@ -2,6 +2,8 @@
 Before testing scripts and commands in the field (with real, and expensive, drones), it is possible to test in virtual environments and simulated vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment - which are then usable in the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and drone setup working using Ardupilot SITL and Gazebo-Harmonic.
 > Note: this guide specifically uses drone models, but other vehicle types can be set up in a similar way.
 
+This guide was created as part of my Summer 2025 Engineering Undergraduate Research Fellowship at the University of Kentucky at the Secure Decentralized Systems Laboratory under the supervision of Dr. Yang Xiao.
+
 ## Conceptual Plan
 This guide aims to complete the following tasks:
 * Simulate the drone controller of an arbitrary number of drones.
@@ -444,13 +446,21 @@ You should get a camera feed that looks like this:
 
 #### Accessing the Camera within Python
 
-In order to access the camera stream using Python, we will be using the OpenCV library and Gstreamer. In order for this to work, OpenCV needs to built with Gstreamer. A guide to accomplish this can be found [here](https://galaktyk.medium.com/how-to-build-opencv-with-gstreamer-b11668fa09c). Once you have installed OpenCV and verified that it works with Gstreamer, you can use the ```image_stream.py``` python file to access one of those streams like so:
+In order to access the camera stream using Python, we will be using the OpenCV library and Gstreamer. In order for this to work, OpenCV needs to built with Gstreamer. A guide to accomplish this can be found [here](https://galaktyk.medium.com/how-to-build-opencv-with-gstreamer-b11668fa09c). For simplicity, you may want to create a new Python virtual environment for your machine vision tasks and install OpenCV with Gstreamer into that environment. For example, I created a virtual environment for using YOLO models and installed OpenCV into that environment, that way I had an environment for running my SITL simulations and an environment for my machine vision processing.
+
+
+Once you have installed OpenCV and verified that it works with Gstreamer, you can use the ```image_stream.py``` python file to access one of those streams like so:
 
 ```sh
 python image_stream.py
 ```
 
+This will open the same window as when we ran Gstreamer directly, but now you are streaming the video through Python and can access the stream for processing. Here is an example of running a YOLO object detection model on the data stream:
+
+<img width="770" height="638" alt="Screenshot_20250714_144429" src="https://github.com/user-attachments/assets/e6a0390b-802c-48e9-bba3-173000657693" />
 
 
+### Conclusion
 
+And there you have it! You now have a 3D simulated environment with an arbitrary number of drones, each with a simulated drone controller, Python scripts to control the drones, and video feeds for performing machine vision tasks. Next steps likely involve adding collision avoidance, more detailed Gazebo environments, and other drone decision-making capability -- hopefully I will have time to make another guide that covers some of these topics.
 
