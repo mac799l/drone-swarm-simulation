@@ -216,6 +216,7 @@ The Dronekit code provided creates a drone class with various simple commands th
 
 ## Multiple Drones
 > Note: this section is a modified version of the guide found [here](https://github.com/monemati/multiuav-gazebo-simulation).
+
 In order to run multiple drones in Gazebo, some additional modifications need to be made. Firstly, go to your Ardupilot plugin models folder:
 
 ```sh
@@ -279,13 +280,15 @@ Where ```X``` is the drone you are adding (from the name of the model folders co
 ## Running the Swarm Simulation.
 
 ### DroneKit
-The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals. The script has each drone fly away from the starting position in a different direction and then return the GPS coordinate of its home and land, much like the single-uav script. However, the script also implements multithreading to make the operation of each drone happen simulataneously, as well as adding new function for the operation of each drone, so they can be operated using separate commands.
+The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four drones). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals below. The script has each drone fly away from the starting position in a different direction and then return the GPS coordinate of its home and land, much like the single-uav script. However, the script also implements multithreading to make the operation of each drone happen simulataneously. Each drone is controlled by its respective '''drone_control''' function.
 
 Now we can launch Gazebo with the new environment (recall that we didn't change the name):
 
 ```sh
 gz sim -v4 -r iris_runway.sdf
 ```
+
+> Note: if you get instability with the drones - random shaking, etc. - you can try starting the SITL instances before launching Gazebo.
 
 To run the code, open a new terminal for each drone. Now, with the Python virtual environment set as the source in each window, create the SITL instance and connect them to Gazebo:
 
@@ -295,7 +298,7 @@ sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I0 --out udp:127.0.0.1
 ```
 In terminal #2:
 ```
-sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I2 --out udp:127.0.0.1:14560
+sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -I1 --out udp:127.0.0.1:14560
 ```
 In terminal #3:
 ```
@@ -313,7 +316,35 @@ python multi_uav_script.py
 ```
 > Remember to have the ```venv_ardupilot``` virtual environment set as the source.
 
-Now the drones should takeoff, go in different directions and then return to the starting position.
+Now the drones should takeoff, go in different directions and then return to the starting position. It is possible to create all the SITL instances from a single sim_vehicle.py command using '''--count''' command, but it caused conflicts with my multi-uav script, so I currently recommend using seperate terminals.
 
-## Gazebo Cameras
-> To be added at a later date.
+## Gazebo Drone Cameras
+
+Thankfully, the drone models already include a Gazebo camera; the models we altered previously have a 3d gimbal and camera. For using the camera with a single drone, no additional configuration needs to be done and you can follow the section about enabling the camera stream. However, if we are using multiple drones and wish to access their cameras, we will need to ensure the cameras are streaming to different ports first, and the process I used is somewhat involved.
+
+
+The first step is to navigate to your models folder at '''~/gz_ws/src/ardupilot_gazebo/models''' and note that model.sdf file in each of your drone folders has the following lines:
+
+'''
+<include>
+ <uri>model://gimbal_small_3d</uri>
+ <name>gimbal</name>
+ <pose degrees="true">0 -0.01 -0.124923 90 0 90</pose>
+</include>
+'''
+
+This is the part of the drone file that includes the gimbal model. Furthermore, the gimbal's model.sdf file in the '''gimbal_small_3d''' folder includes the following lines:
+
+'''
+<plugin name="GstCameraPlugin" 
+  filename="GstCameraPlugin">
+  <udp_host>127.0.0.1</udp_host>
+  <udp_port>5600</udp_port>
+  <use_basic_pipeline>true</use_basic_pipeline>
+  <use_cuda>false</use_cuda>
+</plugin>
+
+'''
+
+The '''GstCameraPlugin''' is what we will access the camera feed from using Gstreamer. Note the '''<udp_port>5600</udp_port>''' option. Since we need a unique port for each camera, we will need each drone to reference a unique gimbal (the camera plugin is attached to the gimbal itself, which is then attached to the drone). To do this, create copies of the '''gimbal_small_3d''' folder like we did with the '''iris_with_gimbal'''
+
