@@ -324,7 +324,7 @@ Thankfully, the drone models already include a Gazebo camera and the camera feed
 
 <img width="720" height="480" alt="Screenshot_20250714_131243" src="https://github.com/user-attachments/assets/ff43683f-ed3f-4696-b713-ef37b3ed4e5a" />
 
-However, if we want to do machine vision tasks, we will want to be able to access the camera stream from our own scripts. Doing this with a single drone requires no additional configuration and you can follow the next section about enabling the camera stream. However, if we are using multiple drones and wish to access their cameras, we will need to ensure the cameras are streaming to different ports first and the process I use is somewhat involved.
+However, if we want to do machine vision tasks, we will want to be able to access the camera stream from our own scripts. Doing this with a single drone requires no additional configuration and you can follow the next section about enabling the camera stream. However, if we are using multiple drones and wish to access their cameras, we will need to ensure the cameras are streaming to different ports first and the process I used is somewhat involved.
 
 ### Using Multiple Camera Streams
 
@@ -376,7 +376,7 @@ In iris_with_gimbal_2:
 and so on...
 
 
-Now, with each gimbal folder, edit the camera plugin settings by incrementing the udp port like so:
+Now, for each gimbal folder edit the camera plugin settings by incrementing the udp port like so:
 
 
 In gimbal_small_3d_1 (stays the same):
@@ -409,9 +409,41 @@ and so on...
 
 #### Testing the Cameras
 
-> This section is an expansion of the official Ardupilot Gazebo Plugin [README](https://github.com/ArduPilot/ardupilot_gazebo).
+> This section is an expansion of the official Ardupilot Gazebo Plugin [README's](https://github.com/ArduPilot/ardupilot_gazebo) section on accessing the cameras.
 
-A simple way to test the camera streams is to use Gstreamer directly. In order to do this, you can install Gstreamer by following the instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c).
+A simple way to test the camera streams is to use Gstreamer directly. In order to do this, you can install Gstreamer by following the instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c). Once you have installed gstreamer, you need to enable streaming for each camera you want to use. This can be done be referencing the Gazebo camera topic (there will be one for each camera included in the world file).
+
+After opening Gazebo, use another terminal to list the Gazebo topics:
+
+'''sh
+gz topic -l
+'''
+
+You should see an entry toward the bottom like this for each drone camera in the scene:
+
+'''
+/world/iris_runway/model/iris_with_gimbal_1/model/gimbal/link/pitch_link/sensor/camera/image/enable_streaming
+'''
+
+This the Gazebo topic that starts the camera stream. To enable it:
+
+'''sh
+gz topic -t /world/iris_runway/model/iris_with_gimbal_1/model/gimbal/link/pitch_link/sensor/camera/image/enable_streaming -m gz.msgs.Boolean -p "data: 1"
+'''
+
+Replace the '''/world/iris_runway/model/iris_with_gimbal_1/model/gimbal/link/pitch_link/sensor/camera/image/enable_streaming''' topic with how it is printed from your Gazebo topic list. Do this for each '''enable_streaming''' topic.
+
+
+Finally, we can test the camera streams. To view a stream, run the following command with the correct '''udpsrc port''':
+
+'''sh
+gst-launch-1.0 -v udpsrc port=5600 caps='application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264' ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink sync=false
+'''
+
+You should get a camera feed that looks like this:
+<img width="771" height="638" alt="Screenshot_20250714_135957" src="https://github.com/user-attachments/assets/757f4614-3d14-476a-8cf0-15e4316e7097" />
+
+
 
 
 
