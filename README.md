@@ -316,14 +316,19 @@ python multi_uav_script.py
 ```
 > Remember to have the ```venv_ardupilot``` virtual environment set as the source.
 
-Now the drones should takeoff, go in different directions and then return to the starting position. It is possible to create all the SITL instances from a single sim_vehicle.py command using '''--count''' command, but it caused conflicts with my multi-uav script, so I currently recommend using seperate terminals.
+Now the drones should takeoff, go in different directions and then return to the starting position. It is possible to create all the SITL instances from a single sim_vehicle.py command using '''--count''' command, but it caused issues with my multi-uav script, so I currently recommend using seperate terminals if you use my script.
 
 ## Gazebo Drone Cameras
 
-Thankfully, the drone models already include a Gazebo camera; the models we altered previously have a 3d gimbal and camera. For using the camera with a single drone, no additional configuration needs to be done and you can follow the section about enabling the camera stream. However, if we are using multiple drones and wish to access their cameras, we will need to ensure the cameras are streaming to different ports first, and the process I used is somewhat involved.
+Thankfully, the drone models already include a Gazebo camera and the camera feeds can be accessed directly from Gazebo by opening up the '''Image Display''' tab (click the three dots on the top right of the window and find the '''Image Display''' option). If you have multiple drones in the environment, you can view each camera by switching between them in the drop down menu of the Image Display tab.
 
+<img width="720" height="480" alt="Screenshot_20250714_131243" src="https://github.com/user-attachments/assets/ff43683f-ed3f-4696-b713-ef37b3ed4e5a" />
 
-The first step is to navigate to your models folder at '''~/gz_ws/src/ardupilot_gazebo/models''' and note that model.sdf file in each of your drone folders has the following lines:
+However, if we want to do machine vision tasks, we will want to be able to access the camera stream from our own scripts. Doing this with a single drone requires no additional configuration and you can follow the next section about enabling the camera stream. However, if we are using multiple drones and wish to access their cameras, we will need to ensure the cameras are streaming to different ports first and the process I use is somewhat involved.
+
+### Using Multiple Camera Streams
+
+The first step is to navigate to your models folder at '''~/gz_ws/src/ardupilot_gazebo/models''' and note that the model.sdf file in each of your '''iris_with_gimbal_x''' drone folders has the following lines:
 
 '''
 <include>
@@ -333,7 +338,7 @@ The first step is to navigate to your models folder at '''~/gz_ws/src/ardupilot_
 </include>
 '''
 
-This is the part of the drone file that includes the gimbal model. Furthermore, the gimbal's model.sdf file in the '''gimbal_small_3d''' folder includes the following lines:
+This is the part of the sdf file that includes the gimbal model. Furthermore, the gimbal's model.sdf file in the '''gimbal_small_3d''' folder includes the following lines:
 
 '''
 <plugin name="GstCameraPlugin" 
@@ -345,6 +350,59 @@ This is the part of the drone file that includes the gimbal model. Furthermore, 
 </plugin>
 
 '''
+#### Using
+The '''GstCameraPlugin''' is what we will access the camera feed from - using Gstreamer. Note the '''<udp_port>5600</udp_port>''' option. Since we need a unique port for each camera, we will need each drone to reference a unique gimbal (the camera plugin is attached to the gimbal, which is then attached to the drone). To do this, create copies of the '''gimbal_small_3d''' folder like we did with the '''iris_with_gimbal''' folders until you have '''gimbal_small_3d_1''', '''gimbal_small_3d_2''', etc. for each drone you plan to use. You don't have to change the model name inside each gimbal folder.
 
-The '''GstCameraPlugin''' is what we will access the camera feed from using Gstreamer. Note the '''<udp_port>5600</udp_port>''' option. Since we need a unique port for each camera, we will need each drone to reference a unique gimbal (the camera plugin is attached to the gimbal itself, which is then attached to the drone). To do this, create copies of the '''gimbal_small_3d''' folder like we did with the '''iris_with_gimbal'''
+Now, in each of your '''iris_with_gimbal_x''' folders, include the correct gimbal to match the folder name of the respective:
 
+In iris_with_gimbal_1:
+'''
+<include>
+  <uri>model://gimbal_small_3d_1</uri>                                                                                                                                                                                              
+  <name>gimbal</name>
+  <pose degrees="true">0 -0.01 -0.124923 90 0 90</pose>
+</include>
+'''
+
+In iris_with_gimbal_2:
+'''
+<include>
+  <uri>model://gimbal_small_3d_2</uri>                                                                                                                                                                                              
+  <name>gimbal</name>
+  <pose degrees="true">0 -0.01 -0.124923 90 0 90</pose>
+</include>
+'''
+
+and so on...
+
+
+Now, with each gimbal folder, edit the camera plugin settings by incrementing the udp port like so:
+
+
+In gimbal_small_3d_1 (stays the same):
+'''
+214         <plugin name="GstCameraPlugin"
+215             filename="GstCameraPlugin">
+216           <udp_host>127.0.0.1</udp_host>
+217           <udp_port>5600</udp_port>
+218           <use_basic_pipeline>true</use_basic_pipeline>
+219           <use_cuda>false</use_cuda>
+220         </plugin>
+'''
+
+
+In gimbal_small_3d_2:
+'''
+214         <plugin name="GstCameraPlugin"
+215             filename="GstCameraPlugin">
+216           <udp_host>127.0.0.1</udp_host>
+217           <udp_port>5700</udp_port>
+218           <use_basic_pipeline>true</use_basic_pipeline>
+219           <use_cuda>false</use_cuda>
+220         </plugin>
+'''
+
+and so on...
+
+
+Alternatively, if you need to send the camera feed to different ip addresses, you can edit the '''<udp_host>127.0.0.1</udp_host>''' parameter. Now the cameras should be set up
