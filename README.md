@@ -1,5 +1,5 @@
 # Drone Swarm Control Using SITL and Gazebo
-Before testing scripts and commands in the field (with real, and expensive, drones), it is possible to test in virtual environments and simulated vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment, which are then usable in the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and drone setup working using Ardupilot SITL and Gazebo-Harmonic.
+Before testing scripts and commands in the field (with real, and expensive, drones), it is possible to test in virtual environments and simulated vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment - which are then usable in the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and drone setup working using Ardupilot SITL and Gazebo-Harmonic.
 > Note: this guide specifically uses drone models, but other vehicle types can be set up in a similar way.
 
 ## Conceptual Plan
@@ -9,10 +9,10 @@ This guide aims to complete the following tasks:
 * Be able to control the drones through various methods, including code.
 * Generate techniques and scripts that are applicable to real drones.
 
-To accomplish this, we will be using several layers of software simulation. Firstly, we will be using the Gazebo simulator to create the 3D environment that the drones will inhabit. Second, to simulate the drone controller (for both metrics gathering and commanding the drone) we will be using Ardupilot's SITL (software in the loop). Third, we will set up the Gazebo-SITL plugin that allows us to have these programs work together. Finally, we will be using DroneKit and Pymavlink to create control scripts for single and multi-uav projects.
+To accomplish this, we will be using several layers of software simulation. Firstly, we will be using the Gazebo simulator to create the 3D environment that the drones will inhabit. Second, to simulate the drone controller (for both metrics gathering and commanding the drone) we will be using Ardupilot's SITL (software in the loop). Third, we will set up the Gazebo-SITL plugin that allows us to have these programs work together. Finally, we will be using DroneKit and Pymavlink (in progress) to create control scripts for single and multi-uav projects.
 
 ## Pre-requisites
-* A reasonably capable computer (I recommend a multicore CPU, dedicated GPU, and at least 8GB of ram)
+* A reasonably capable computer (a dedicated GPU, and at least 8GB of ram)
 * Ubuntu 22.04 or Windows with WSL2 (with Ubuntu installed)
 > Note: other versions of Ubuntu may also work, but were not tested.
 
@@ -25,7 +25,7 @@ Gazebo is a popular robotics simulator. It allows for the simulation of detailed
 > Gazebo image [source](https://gazebosim.org/showcase)
 
 ### SITL
-Ardupilot's SITL is a tool that allows us to simulate the inner workings of the drone itself. Sensor data such as GPS location, various status and safety checks, battery level, and more are simulated. Additionally, SITL allows us to use real-world methods (e.g. [Mavlink messages](https://mavlink.io/en/)) to control the drone.
+Ardupilot's SITL is a tool that allows us to simulate the inner workings of the drone itself. Sensor data such as GPS location, various status and safety checks, battery level, and more are simulated. Additionally, SITL allows us to use real-world methods (e.g. [Mavlink messages](https://mavlink.io/en/)) to control the drone using the simulated drone controller.
 
 ![sitl](https://github.com/user-attachments/assets/4887f7e6-70c2-4b34-8aac-bdccba13c87d)
 
@@ -51,7 +51,7 @@ sudo apt-get update
 sudo apt-get install gz-harmonic
 ```
 
-Run Gazebo and use the provided shapes.sdf environment:
+Run Gazebo and use the default shapes.sdf environment:
 ```sh
 gz sim -v4 -r shapes.sdf
 ```
@@ -134,23 +134,24 @@ cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
 make -j4
 ```
 
-Configure environment variables so Gazebo can access the plugin:
+Add environment variables to your .bashrc file so Gazebo can access the plugin:
 
 ```sh
 echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=$HOME/gz_ws/src/ardupilot_gazebo/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}' >> ~/.bashrc
 echo 'export GZ_SIM_RESOURCE_PATH=$HOME/gz_ws/src/ardupilot_gazebo/models:$HOME/gz_ws/src/ardupilot_gazebo/worlds:${GZ_SIM_RESOURCE_PATH}' >> ~/.bashrc
 ```
 
-Finally, run Gazebo again, but this time with a project provided by the Ardupilot plugin:
+Finally, run Gazebo again, but this time with a iris_runway.sdf world provided by the Ardupilot plugin:
 ```sh
 gz sim -v4 -r iris_runway.sdf
 ```
 > Note: if the ```gz sim -v4 -r iris_runway.sdf``` command does not work, a system restart may be needed.
 
 This should open a Gazebo project with a single drone on a runway like this:
-PICTURE
 
-Now we have successfully set up the drone environment.
+<img width="808" height="700" alt="Screenshot_20250714_103302" src="https://github.com/user-attachments/assets/5c9b4333-e755-4f72-8b3f-f2369da80833" />
+
+Now the Gazebo Plugin should be working.
 
 ### #4 - Test the Environment
 
@@ -168,7 +169,7 @@ sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --map --console
 As before, this should create an instance of Mavproxy in the terminal. This should automatically connect to the Gazebo environment. After it sets up, press ```Enter``` a few times and you should see ```<STABILIZE>``` pop up. 
 > Note: if desired, you can right click the drone in Gazebo and select for the viewport camera to follow it.
 
-Finally, you can use these Mavproxy commands (one at a time) to make the drone takeoff:
+Finally, once the drone is fully initialized (GPS initialization is typically the last step), you can use these Mavproxy commands (one at a time) to make the drone takeoff:
 ```sh
 mode GUIDED
 arm throttle
@@ -187,7 +188,7 @@ source ~/venv-ardupilot/bin/activate
 Now, ensure the following packages are installed:
 
 ```sh
-pip install pymavlink dronekit MAVProxy pymavlink
+pip install pymavlink dronekit MAVProxy
 ```
 
 ## Single Drone
@@ -204,7 +205,7 @@ python single_uav_script.py --connect udp:127.0.0.1:14550
 
 ### DroneKit
 
-The Dronekit code provided creates a drone class various simple commands that can be called on the drone object. The default main function simply makes the drone fly Northeast, then Northwest, and finally returns to the home location of the drone (saved as the takeoff location) and lands.
+The Dronekit code provided creates a drone class with various simple commands that can be called on the drone object. The default main function simply makes the drone fly Northeast, then Northwest, and finally returns to the home location of the drone (saved as the takeoff location) and lands.
 
 ## Multiple Drones
 > Note: this section is a modified version of the guide found [here](https://github.com/monemati/multiuav-gazebo-simulation).
