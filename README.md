@@ -487,5 +487,5 @@ This will open the same window as when we ran Gstreamer directly, but now you ar
 
 ### Conclusion
 
-And there you have it! You now have a 3D simulated environment with an arbitrary number of drones, each with a simulated drone controller, Python scripts to control the drones, and video feeds for performing machine vision tasks. Next steps likely involve adding collision avoidance, more detailed Gazebo environments, and other drone decision-making capability -- hopefully I will have time to make another guide that covers some of these topics.
+And there you have it! You now have a simulated environment with an arbitrary number of drones, each with a simulated drone controller, Python scripts to control the drones, and video feeds for performing machine vision tasks. Next steps likely involve adding collision avoidance, more detailed Gazebo environments, and other drone decision-making capability -- many of which are planned additions to this guide, so look out for those!
 
