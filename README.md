@@ -1,4 +1,4 @@
-# Drone Swarm Control Using SITL and Gazebo
+# Drone Swarm Control Using SITL and Gazebo (WIP)
 Before testing drone control scripts or GCS (ground control station) commands in the field with real - and expensive - drones, it is possible to test in simulated environments with virtual vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment - which are then transferrable to the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and multi-drone setup working using Ardupilot SITL (software in the loop) and Gazebo-Harmonic.
 > Note: this guide specifically uses drone models, but other vehicle types can be set up in a similar way.
 
@@ -22,16 +22,21 @@ To accomplish this, we will be using several layers of software simulation. Firs
 ### Gazebo
 Gazebo is a popular robotics simulator. It allows for the simulation of detailed vehicles, drones, and robots. These simulations include physics, sensors and cameras, and even the individual components and motors of your robot.
 
-<img src="https://github.com/user-attachments/assets/fca8dfa0-4d5b-4d6a-8b07-68a609e6c8dc" width="640" height="360">
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/fca8dfa0-4d5b-4d6a-8b07-68a609e6c8dc" width="640" height="360">
+</p>
 
 > Gazebo image [source](https://gazebosim.org/showcase)
 
 ### SITL
 Ardupilot's SITL is a tool that allows us to simulate the inner workings of the drone itself. Sensor data such as GPS location, various status and safety checks, battery level, and more are simulated. Additionally, SITL allows us to use real-world methods (e.g. [Mavlink messages](https://mavlink.io/en/)) to control the drone using the simulated drone controller.
 
-![sitl](https://github.com/user-attachments/assets/4887f7e6-70c2-4b34-8aac-bdccba13c87d)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4887f7e6-70c2-4b34-8aac-bdccba13c87d" />
+</p>
 
 > SITL image [source](https://ardupilot.org/dev/docs/sitl-simulator-software-in-the-loop.html)
+
 # Installation
 
 This section assumes you have installed Ubuntu 22.04 (or an official [Ubuntu 22.04 flavor](https://ubuntu.com/desktop/flavors)) either natively or through Windows WSL2. If not, a guide can be found [here](https://ubuntu.com/tutorials/install-ubuntu-desktop#1-overview). The Windows WSL2 installation guide can be found [here](https://learn.microsoft.com/en-us/windows/wsl/install).
@@ -61,8 +66,9 @@ gz sim -v4 -r shapes.sdf
 
 This command should open Gazebo with a window like this:
 
-<img src="https://github.com/user-attachments/assets/8ef2dcf4-07ae-464d-af67-d88400c01d89" width="808" height="700">
-
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8ef2dcf4-07ae-464d-af67-d88400c01d89" width="808" height="700">
+</p>
 
 > Note: if the window fails to open, check the debug information from the terminal you started Gazebo in. If it reads
 > ```[GUI] [Dbg] [Gui.cc:343] GUI requesting list of world names. The server may be busy downloading resources. Please be patient.```
@@ -151,7 +157,9 @@ gz sim -v4 -r iris_runway.sdf
 
 This should open a Gazebo project with a single drone on a runway like this:
 
-<img width="808" height="700" alt="Screenshot_20250714_103302" src="https://github.com/user-attachments/assets/5c9b4333-e755-4f72-8b3f-f2369da80833" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/5c9b4333-e755-4f72-8b3f-f2369da80833" width="808" height="700">
+</p>
 
 Now the Gazebo Plugin should be working.
 
@@ -330,7 +338,9 @@ Now the drones should takeoff, go in different directions and then return to the
 
 Thankfully, the drone models already include a Gazebo camera and the camera feeds can be accessed directly from Gazebo by opening up the ```Image Display``` tab (click the three dots on the top right of the window and find the ```Image Display``` option). If you have multiple drones in the environment, you can view each camera by switching between them in the drop down menu of the Image Display tab.
 
-<img width="720" height="480" alt="Screenshot_20250714_131243" src="https://github.com/user-attachments/assets/ff43683f-ed3f-4696-b713-ef37b3ed4e5a" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ff43683f-ed3f-4696-b713-ef37b3ed4e5a" width="720" height="480">
+</p>
 
 However, if we want to do machine vision tasks, we will want to be able to access the camera stream from our own scripts. Doing this with a single drone requires no additional configuration and you can follow the next section about enabling the camera stream. However, if we are using multiple drones and wish to access their cameras, we will need to ensure the cameras are streaming to different ports first and the process I used is somewhat involved.
 
@@ -448,7 +458,10 @@ gst-launch-1.0 -v udpsrc port=5600 caps='application/x-rtp, media=(string)video,
 ```
 
 You should get a camera feed that looks like this:
-<img width="771" height="638" alt="Screenshot_20250714_135957" src="https://github.com/user-attachments/assets/757f4614-3d14-476a-8cf0-15e4316e7097" />
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/757f4614-3d14-476a-8cf0-15e4316e7097" width="771" height="638">
+</p>
 
 #### Accessing the Camera within Python
 
@@ -463,8 +476,9 @@ python image_stream.py
 
 This will open the same window as when we ran Gstreamer directly, but now you are streaming the video through Python and can access the stream for processing. Here is an example of running a YOLO object detection model on the data stream:
 
-<img width="770" height="638" alt="Screenshot_20250714_144429" src="https://github.com/user-attachments/assets/e6a0390b-802c-48e9-bba3-173000657693" />
-
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e6a0390b-802c-48e9-bba3-173000657693" width="770" height="638">
+</p>
 
 ### Conclusion
 
