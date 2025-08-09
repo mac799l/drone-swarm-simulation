@@ -4,6 +4,11 @@ Before testing drone control scripts or GCS (ground control station) commands in
 
 This guide was created as part of my Summer 2025 Engineering Undergraduate Research Fellowship at the University of Kentucky at the Secure Decentralized Systems Laboratory under the supervision of Dr. Yang Xiao.
 
+> This repository is a work-in-progress with additional code and documentation planned. Some planned additions:
+> Multi-drone simulations using Airsim.
+> Additional coding scripts such as performing drone control and image classification simultaneously.
+> Rewriting scripts using MAVSDK (C++) and Pymavlink (Python).
+
 ## Conceptual Plan
 This guide aims to complete the following tasks:
 * Simulate the drone controller of an arbitrary number of drones.
