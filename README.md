@@ -2,12 +2,12 @@
 Before testing drone control scripts or GCS (ground control station) commands in the field with real - and expensive - drones, it is possible to test in simulated environments with virtual vehicles first. The end goal is to test scripts, code, and techniques in a safe and easily replicable environment - which are then transferrable to the real world with actual drones. To that end, this guide will follow the process of getting a simple virtual environement and multi-drone setup working using Ardupilot SITL (software in the loop) and Gazebo-Harmonic.
 > Note: this guide specifically uses drone models, but other vehicle types can be set up in a similar way.
 
-This guide was created as part of my Summer 2025 Engineering Undergraduate Research Fellowship at the University of Kentucky at the Secure Decentralized Systems Laboratory under the supervision of Dr. Yang Xiao.
+This guide was created as part of a Summer 2025 Engineering Undergraduate Research Fellowship at the University of Kentucky at the Secure Decentralized Systems Laboratory under the supervision of Dr. Yang Xiao.
 
 > This repository is a work-in-progress with additional code and documentation planned. Some planned additions:
-> Multi-drone simulations using Airsim.
-> Additional coding scripts such as performing drone control and image classification simultaneously.
-> Rewriting scripts using MAVSDK (C++) and Pymavlink (Python).
+> * Multi-drone simulations using Airsim to afford easier environment creation.
+> * Additional coding scripts to better incorporate classification/object detection.
+> * Rewriting scripts using MAVSDK (C++) and Pymavlink (Python) due to limited Dronekit support.
 
 ## Conceptual Plan
 This guide aims to complete the following tasks:
