@@ -1,17 +1,18 @@
 """
-Filename: single_uav_classification_WIP.py
-Author: Cameron Lira
-Date: 2025-07-14
-Version: 1.0
-Project: Drone Swarm Control Using SITL and Gazebo
+    Filename: single_uav_classification.py
+    Author: Cameron Lira
+    Updated: 2025-08-13
+    Project: Drone Swarm Control Using SITL and Gazebo
 
-Description: 
-This script commands a connected drone to follow a preset path defined in the control function. 
-It also performs classification using a Gstreamer udp video source from the Ardupilot Gazebo Gstreamer plugin. 
-It also displays the video stream with the predicted classifications.
+    Description: 
+    This script commands a connected drone to follow a preset path defined in the control function. 
+    It also performs classification using a Gstreamer udp video source from the Ardupilot Gazebo Gstreamer plugin using YOLO and Opencv.
+    
+    NOTE: the script is currently designed to perform YOLO classification using a YOLO model trained on the MEDIC disaster dataset. 
+    Minor modifications would be needed to perform other tasks. 
 
-Arguments: 
---connect PROTOCOL:IP:PORT (provide the connection information, otherwise defaults to a serial connection).
+    Arguments: 
+    --connect PROTOCOL:IP:PORT (provide the connection information, otherwise defaults to a serial connection).
 """
 
 from collections import abc
@@ -27,6 +28,7 @@ import threading
 from enum import Enum
 
 
+# Detected classes for use by a YOLO model trained on the MEDIC dataset.
 class Disaster(Enum):
     EARTHQUAKE = 0
     FIRE = 1
@@ -44,6 +46,7 @@ def connectCopter():
     args = parser.parse_args()
     connection = args.connect
     
+    # Default to a physical connection (i.e. RaspberryPi serial connection).
     if not connection:
         connection = "/dev/serial0"
         print("No connection argument! Attempting to connect over serial.")
@@ -76,7 +79,7 @@ def classificationYOLO(camera_stream, copter):
     model = YOLO("trained_models/best.pt")
     frame_data = []
     frame_data.append([0,"NOT_DISASTER", 0, [0,0,0]])
-    #if args.display is not None:
+
     while True:
 
         ret, frame = camera_stream.read()
@@ -157,7 +160,7 @@ def main():
     time.sleep(1)
     print("Finished script. Closing connections.")
 
-#Close connections.
+    # Close connections.
     copter_connection.close()
 
 

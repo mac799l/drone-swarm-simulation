@@ -1,10 +1,11 @@
 """
     Filename: camera_yolo_tracking.py
     Author: Cameron Lira
-    Date: 2025-07-14
-    Version: 1.0
+    Updated: 2025-08-13
     Project: Drone Swarm Control Using SITL and Gazebo
-    Description: This script displays a video stream from the camera of a simulated drone in Gazebo with the bounding boxes computed by a YOLO object detection model.                                                                                                                              
+    
+    Description: 
+        This script displays a video stream from the camera of a simulated drone in Gazebo with the bounding boxes computed by a YOLO object detection model.                                                                                                                              
 """
 
 import cv2 as cv
@@ -41,7 +42,7 @@ def main():
         if cv.waitKey(1) == ord('q'):
             break
 
-    camera.release()
+    camera_stream.release()
     cv.destroyAllWindows()
 
 
