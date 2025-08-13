@@ -1,4 +1,14 @@
-#from asyncio.windows_events import NULL
+"""
+    Filename: single_uav_script.py
+    Author: Cameron Lira
+    Date: 2025-07-14
+    Version: 1.0
+    Project: Drone Swarm Control Using SITL and Gazebo
+    Description: This script includes a basic drone class and main function to accomplish basic movement commands.
+    Arguments: 
+        --connect PROTOCOL:IP:PORT (specify the forwarded connection from Mavproxy)
+"""
+
 from collections import abc
 import collections
 collections.MutableMapping = abc.MutableMapping
@@ -138,7 +148,7 @@ class drone():
         self.vehicle.groundspeed = GROUNDSPEED
         return
 
-    
+    # Move relative to the drone frame.
     def send_local_ned_velocity(self, velocity_x, velocity_y, velocity_z, duration):
         """
         Move vehicle in direction based on specified velocity vectors.
@@ -159,7 +169,7 @@ class drone():
             self.vehicle.send_mavlink(msg)
             time.sleep(1)
 
-
+    # Move relative to the Earth (North/South/East/West).
     def send_global_ned_velocity(self, velocity_x, velocity_y, velocity_z, duration):
         """
         Move vehicle in direction based on specified velocity vectors.
@@ -179,9 +189,6 @@ class drone():
         for x in range(0,duration):
             self.vehicle.send_mavlink(msg)
             time.sleep(1)
-
-    #def go_to(self, x, y, z):
-    #    a_location = LocationGlobalRelative(-34.364114, 149.166022, 30)
 
     # Move drone to given location in the form (lat, lon, alt).
     def go_to(self, target):
@@ -247,12 +254,6 @@ def main():
     AIRSPEED = 8
     GROUNDSPEED = 8
 
-    #if SITL:
-        #vehicle, sitl = connectCopterSITL();
-    #else:
-        #vehicle = connectCopter()
-
-    #copter = drone(vehicle)
     if SITL:
         import dronekit_sitl
         sitl = dronekit_sitl.start_default()
@@ -273,23 +274,23 @@ def main():
     
     time.sleep(1)
     print("Altitude: ",copter.getAltGlobal(), "meters.")
-    
-    copter.send_global_ned_velocity(8,4,0,8)
-    #time.sleep(1)
-    copter.send_global_ned_velocity(8,-5,0,8)
-    #time.sleep(1)
-    #copter.send_global_ned_velocity(-8,0,0,1)
-    #time.sleep(1)
-    #copter.send_global_ned_velocity(0,-8,0,10)
-    #time.sleep(1)
+
+    # Move North at 8 m/s for 8 seconds.
+    copter.send_global_ned_velocity(8,0,0,8)
+    # Move South at 8 m/s for 4 seconds.
+    copter.send_global_ned_velocity(-8,0,0,4)
+    # Move East at 5 m/s for 5 seconds.
+    copter.send_global_ned_velocity(0,5,0,5)
+    # Move West at 5 m/s for 10 seconds.
+    copter.send_global_ned_velocity(0,-5,0,10)
+
     
     copter.go_to(copter.getHome())
     time.sleep(1)
     copter.land()
-    #copter.setMode("RTL")
-    time.sleep(1)
+
     print("Finished script. Closing connections.")
-    #Close connections.
+    # Close connections.
     vehicle.close()
     if SITL:
         sitl.stop()
