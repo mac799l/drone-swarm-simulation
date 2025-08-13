@@ -1,5 +1,5 @@
 """
-Filename: single_uav_classification.py
+Filename: single_uav_classification_WIP.py
 Author: Cameron Lira
 Date: 2025-07-14
 Version: 1.0
@@ -8,11 +8,10 @@ Project: Drone Swarm Control Using SITL and Gazebo
 Description: 
 This script commands a connected drone to follow a preset path defined in the control function. 
 It also performs classification using a Gstreamer udp video source from the Ardupilot Gazebo Gstreamer plugin. 
-Optionally, it also displays the video stream with the predicted classifications.
+It also displays the video stream with the predicted classifications.
 
 Arguments: 
 --connect PROTOCOL:IP:PORT (provide the connection information, otherwise defaults to a serial connection).
---display_video (choose to display the video stream with classification predictions).
 """
 
 from collections import abc
