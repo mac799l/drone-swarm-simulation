@@ -171,6 +171,7 @@ Now the Gazebo Plugin should be working.
 ### #4 - Test the Environment
 
 With the previous Gazebo window still open, and in a separate terminal, we will connect to the drone using a SITL instance. In a second terminal, do the following:
+
 Set the venv-ardupilot virtual Python environment as the source.
 ```sh
 source ~/venv-ardupilot/bin/activate
@@ -215,7 +216,9 @@ We have already tested a single drone using Mavproxy commands. However, this int
 > Note: Dronekit is a handy library for learning to code drone behaviour, but it lacks support and maintenance so I recommend transitioning to Pymavlink long-term.
 
 Run Gazebo same as before:
+```sh
 gz sim -v4 -r iris_runway.sdf
+```
 
 Run SITL, but add the ```--out``` option to specify a forwarding IP and port for our code to connect to:
 
@@ -301,7 +304,7 @@ Where ```X``` is the drone you are adding (from the name of the model folders co
 ## Running the Swarm Simulation.
 
 ### DroneKit
-The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four drones). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals below. The script has each drone fly away from the starting position in a different direction and then return the GPS coordinate of its home and land, much like the single-uav script. However, the script also implements multithreading to make the operation of each drone happen simulataneously. Each drone is controlled by its respective ```drone_control``` function.
+The multi-uav script uses the ```connections.txt``` to read the IP addresses and ports of each connection (currently configured for four drones). No additional changes need to be made to it, unless you have altered the ```--out``` parameters in the SITL terminals below, which specify the fordwarding port from Mavproxy. The script has each drone fly away from the starting position in a different direction and then return to the GPS coordinate from where it launched, much like the single-uav script. However, the script uses multithreading so the operation of each drone happens simultaneously. Each drone is controlled by its respective ```drone_control``` function.
 
 Now we can launch Gazebo with the new environment (recall that we didn't change the name):
 
@@ -377,7 +380,7 @@ The ```GstCameraPlugin``` is what streams the camera feed using [Gstreamer](http
 
 Now, in each of your ```iris_with_gimbal_x``` folders, include the correct gimbal to match the folder name of the respective drone:
 
-In iris_with_gimbal_1:
+In ```iris_with_gimbal_1```:
 ```
 <include>
   <uri>model://gimbal_small_3d_1</uri>                                                                                                                                                                                              
@@ -386,7 +389,7 @@ In iris_with_gimbal_1:
 </include>
 ```
 
-In iris_with_gimbal_2:
+In ```iris_with_gimbal_2```:
 ```
 <include>
   <uri>model://gimbal_small_3d_2</uri>                                                                                                                                                                                              
@@ -401,7 +404,7 @@ and so on...
 Now, for each gimbal folder edit the camera plugin settings by incrementing the udp port like so:
 
 
-In gimbal_small_3d_1 (stays the same):
+In ```gimbal_small_3d_1``` (port value stays the same):
 ```
 214         <plugin name="GstCameraPlugin"
 215             filename="GstCameraPlugin">
@@ -413,7 +416,7 @@ In gimbal_small_3d_1 (stays the same):
 ```
 
 
-In gimbal_small_3d_2:
+In ```gimbal_small_3d_2``` (increment the port number):
 ```
 214         <plugin name="GstCameraPlugin"
 215             filename="GstCameraPlugin">
