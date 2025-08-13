@@ -1,8 +1,15 @@
-#from asyncio.windows_events import NULL
+"""
+    Filename: multi_uav_script.py
+    Author: Cameron Lira
+    Date: 2025-07-14
+    Version: 1.0
+    Project: Drone Swarm Control Using SITL and Gazebo
+    Description: This script connects and controls four drones, with the commands for each drone being specified by its drone_control_x function. Ensure that you have a connections.txt file that contains the connection parameters for each drone.                                                                                                                              
+"""
+
 from collections import abc
 import collections
 collections.MutableMapping = abc.MutableMapping
-#import dronekit
 from dronekit import connect, VehicleMode, LocationGlobalRelative, APIException
 import time
 import argparse
@@ -225,8 +232,6 @@ def connectCopter(connection):
         connection = "/dev/serial0"
         print("No connection argument! Defaulting to /dev/serial0.")
 
-    #print(connection)
-
     vehicle = connect(connection, wait_ready=True)#, baud=57600)
     return vehicle
 
@@ -245,50 +250,43 @@ def drone_control_0(copter):
     
     time.sleep(1)
     print("Altitude: ",copter.getAltGlobal(), "meters.")
-    
+
+    # Move Northwest for 8 seconds.
     copter.send_global_ned_velocity(8,-4,0,8)
     time.sleep(1)
+    # Move North for 4 seconds.
     copter.send_global_ned_velocity(8,0,0,4)
     time.sleep(1)
-    #copter.send_global_ned_velocity(-8,0,0,1)
-    #time.sleep(1)
-    #copter.send_global_ned_velocity(0,-8,0,10)
-    #time.sleep(1)
     
     copter.go_to(copter.getHome())
     time.sleep(1)
     copter.land()
-    #copter.setMode("RTL")
 
 
 def drone_control_1(copter):
-    
     AIRSPEED = 8
     GROUNDSPEED = 8
 
     copter.setHome()
-    
     copter.printInfo()
     copter.setSpeed(AIRSPEED,GROUNDSPEED)
     
-    copter.takeoff(20)
+    TAKEOFF_HEIGHT_M = 20
+    copter.takeoff(TAKEOFF_HEIGHT_M)
     
     time.sleep(1)
     print("Altitude: ",copter.getAltGlobal(), "meters.")
-    
+
+    # Move Northeast for 8 seconds.
     copter.send_global_ned_velocity(8,4,0,8)
     time.sleep(1)
+    # Move North for 4 seconds.
     copter.send_global_ned_velocity(8,0,0,4)
     time.sleep(1)
-    #copter.send_global_ned_velocity(-8,0,0,1)
-    #time.sleep(1)
-    #copter.send_global_ned_velocity(0,-8,0,10)
-    #time.sleep(1)
     
     copter.go_to(copter.getHome())
     time.sleep(1)
     copter.land()
-    #copter.setMode("RTL")
 
 
 def drone_control_2(copter):
@@ -296,67 +294,57 @@ def drone_control_2(copter):
     GROUNDSPEED = 8
 
     copter.setHome()
-    
     copter.printInfo()
     copter.setSpeed(AIRSPEED,GROUNDSPEED)
-    
-    copter.takeoff(20)
+
+    TAKEOFF_HEIGHT_M = 20
+    copter.takeoff(TAKEOFF_HEIGHT_M)
     
     time.sleep(1)
     print("Altitude: ",copter.getAltGlobal(), "meters.")
-    
+
+    # Move Southwest for 8 seconds.
     copter.send_global_ned_velocity(-8,-4,0,8)
     time.sleep(1)
+    # Move West for 4 seconds.
     copter.send_global_ned_velocity(-8,0,0,4)
     time.sleep(1)
-    #copter.send_global_ned_velocity(-8,0,0,1)
-    #time.sleep(1)
-    #copter.send_global_ned_velocity(0,-8,0,10)
-    #time.sleep(1)
     
     copter.go_to(copter.getHome())
     time.sleep(1)
     copter.land()
-    #copter.setMode("RTL")
  
 
 def drone_control_3(copter):
-
     AIRSPEED = 8
     GROUNDSPEED = 8
 
-
     copter.setHome()
-    
     copter.printInfo()
     copter.setSpeed(AIRSPEED,GROUNDSPEED)
     
-    copter.takeoff(20)
+    TAKEOFF_HEIGHT_M = 20
+    copter.takeoff(TAKEOFF_HEIGHT_M)
     
     time.sleep(1)
     print("Altitude: ",copter.getAltGlobal(), "meters.")
-    
+
+    # Move Southeast for 8 seconds.
     copter.send_global_ned_velocity(-8,4,0,8)
     time.sleep(1)
+    # Move West for 4 seconds.
     copter.send_global_ned_velocity(-8,0,0,4)
     time.sleep(1)
-    #copter.send_global_ned_velocity(-8,0,0,1)
-    #time.sleep(1)
-    #copter.send_global_ned_velocity(0,-8,0,10)
-    #time.sleep(1)
     
     copter.go_to(copter.getHome())
     time.sleep(1)
     copter.land()
-    #copter.setMode("RTL")
-
 
 
 def main():
 
     copters = []
     with open("connections.txt","r") as file:
-        #arg = file.readline()
         for arg in file:
             print("Connecting to: ",arg.strip())
             connect = arg.strip()
