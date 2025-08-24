@@ -5,7 +5,7 @@
     Project: Drone Swarm Control Using SITL and Gazebo
     
     Description: 
-        This script displays a video stream from the camera of a simulated drone in Gazebo with the bounding boxes computed by a YOLO object detection model.                                                                                                                              
+        Displays a video stream from the camera of a simulated drone in Gazebo with the bounding boxes computed by a YOLO object detection model.                                                                                                                              
 """
 
 import cv2 as cv

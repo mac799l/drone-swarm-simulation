@@ -5,7 +5,7 @@
     Project: Drone Swarm Control Using SITL and Gazebo
     
     Description: 
-        This script displays an image stream from the camera of a single simulated drone in Airsim (using the Airsim API) and returns the classification of the image using a YOLO classification model.                                                                                                                              
+        Displays an image stream from the camera of a single simulated drone in Airsim (using the Airsim API) and returns the classification of the image using a YOLO classification model.                                                                                                                              
 """
 
 import cv2 as cv

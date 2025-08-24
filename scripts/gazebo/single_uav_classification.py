@@ -5,7 +5,7 @@
     Project: Drone Swarm Control Using SITL and Gazebo
 
     Description: 
-    This script commands a connected drone to follow a preset path defined in the control function. 
+    Commands a connected drone to follow a preset path defined in the control function. 
     It also performs classification using a Gstreamer udp video source from the Ardupilot Gazebo Gstreamer plugin using YOLO and Opencv.
     
     NOTE: the script is currently designed to perform YOLO classification using a YOLO model trained on the MEDIC disaster dataset. 

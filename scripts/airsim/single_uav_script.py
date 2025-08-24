@@ -5,7 +5,7 @@
     Project: Drone Swarm Control Using SITL and Gazebo
 
     Description: 
-    This script commands a connected drone to follow a preset path defined in the control function using Dronekit. 
+    Commands a connected drone to follow a preset path defined in the control function using Dronekit. 
     
     Arguments: 
     --connect PROTOCOL:IP:PORT (provide the connection information, otherwise defaults to a serial connection).

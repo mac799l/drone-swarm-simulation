@@ -1,41 +1,32 @@
-# ready to run example: PythonClient/multirotor/hello_drone.py
+"""
+    Filename: airsim_camera_stream.py
+    Author: Cameron Lira
+    Updated: 2025-08-24
+    Project: Drone Swarm Simulation
+
+    Description: 
+        Displays images from the camera of a simulated drone in Airsim using the Airsim API and Opencv.
+"""
+
 import airsim
-import time
 import cv2 as cv
 import numpy as np
 
+AIRSIM_HOST_IP = "172.24.112.1"
 
 # connect to the AirSim simulator
-client = airsim.MultirotorClient(ip="172.24.112.1")
+client = airsim.MultirotorClient(ip=AIRSIM_HOST_IP)
 client.confirmConnection()
 client.enableApiControl(True)
-#client.armDisarm(True)
 
-# Async methods returns Future. Call join() to wait for task to complete.
-#client.takeoffAsync().join()
-#client.moveToPositionAsync(-10, 10, -10, 5).join()
+# Select the front camera.
+CAMERA_SELECTION = "0"
+DRONE_NAME_1 = "Copter"
+DRONE_NAME_2 = "Copter2"
 
-#state = client.getMultirotorState()
+responses = client.simGetImage(CAMERA_SELECTION, airsim.ImageType.Scene, vehicle_name=DRONE_NAME_1)
 
-
-
-# take images
-'''
-responses = client.simGetImages([
-    # png format
-    airsim.ImageRequest(0, airsim.ImageType.Scene),
-    # uncompressed RGB array bytes
-    airsim.ImageRequest(1, airsim.ImageType.Scene, False, False),
-    # floating point uncompressed image
-    airsim.ImageRequest(1, airsim.ImageType.DepthPlanar, True)])
-'''
-#responses = client.simGetImage("0", airsim.ImageType.Scene)
-
-#print('Retrieved images: %d', len(responses))
-
-responses = client.simGetImage("0", airsim.ImageType.Scene, vehicle_name="Copter")
-
-responses2 = client.simGetImage("0", airsim.ImageType.Scene, vehicle_name="Copter2")
+responses2 = client.simGetImage(CAMERA_SELECTION, airsim.ImageType.Scene, vehicle_name=DRONE_NAME_2)
 
 print('Retrieved images: %d', len(responses))
 
@@ -45,8 +36,8 @@ img_np = cv.imdecode(nparr, cv.IMREAD_COLOR)
 nparr2 = np.frombuffer(responses2, np.uint8)
 img_np2 = cv.imdecode(nparr2, cv.IMREAD_COLOR)
 
+# Display an image from each drone.
 cv.imshow('',img_np)
 cv.waitKey(0)
 cv.imshow('',img_np2)
 cv.waitKey(0)
-#response2 = client.simGetImages([airsim.ImageRequest("camera_name", airsim.ImageType.Scene, False, False)])
