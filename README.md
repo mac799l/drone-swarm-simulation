@@ -1,4 +1,6 @@
-# Drone Swarm Control Using SITL and Gazebo (WIP)
+# Drone Swarm Control Using SITL and Gazebo (EXPERIMENTAL)
+> This is the experimental branch, and therefore may have code, files, guides, or other materials that are not finished, tested, or polished.
+
 Before testing drone control scripts or GCS (ground control station) commands in the field with real - and expensive - drones, it is possible to test in simulated environments with virtual vehicles first. The goal of this guide is to create scripts and techniques in a safe, virtual, and easily replicable environment - much of which is transferrable to the real world with actual drones. To that end, this guide will demonstrate the following the process:
 * (1). Setting up a simulated environment and drone controller.
 * (2). Creating simple control scripts.
