@@ -5,7 +5,7 @@
     Project: Drone Swarm Simulation
 
     Description: 
-        Displays images from the camera of a simulated drone in Airsim using the Airsim API and Opencv.
+        Displays images from the camera of a two simulated drones in Airsim using the Airsim API and Opencv.
 """
 
 import airsim

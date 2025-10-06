@@ -28,6 +28,8 @@ import threading
 from enum import Enum
 import airsim
 import numpy as np
+import math
+from drone_network import swarm
 
 # Detected classes for use by a YOLO model trained on the MEDIC dataset.
 class Disaster(Enum):
@@ -99,7 +101,7 @@ def classificationYOLO(client, copter):
                 frame_data.pop()
                 frame_data.append([frame, enum_name, confidence, location])
 
-        # Press 'q' from the camera window to quit.
+        # Press 'q' from the camera window to stop classification.
         if cv.waitKey(1) == ord('q'):
             break
 
@@ -130,6 +132,8 @@ def droneControl(copter):
     copter.land()
 
     return
+
+
 
 def argParser():
 

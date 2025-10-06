@@ -14,7 +14,8 @@ collections.MutableMapping = abc.MutableMapping
 from dronekit import VehicleMode, LocationGlobalRelative
 import time
 from pymavlink import mavutil
-
+from drone_network import swarm
+import drone_utils as utils
 
 class drone():
     
@@ -184,6 +185,19 @@ class drone():
         # send command to vehicle on 1 Hz cycle
         for x in range(0,duration):
             self.vehicle.send_mavlink(msg)
+            
+            MIN_DISTANCE_MI = 0.005 # ~30ft
+            gps_coords = swarm.gpsSync()
+            curr_gps = self.getLocationGlobal()
+
+            distances = []
+            for gps_coord in gps_coords:
+                distances.append( utils.gpsDistance(curr_gps, gps_coord) )
+            for distance in distances:
+                if distance < MIN_DISTANCE_MI:
+                    # TODO: CORRECT TRAJECTORY
+                    pass
+
             time.sleep(1)
 
 

@@ -19,16 +19,6 @@ def main():
     client.confirmConnection()
     client.enableApiControl(True)
 
-    # Print information to verify if Gstreamer is enabled.
-    #print(cv.getBuildInformation())
-
-    #pipeline = "udpsrc port=5600 caps=application/x-rtp,media=video,encoding-name=H264 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! appsink drop=1"
-    #camera_stream = cv.VideoCapture(pipeline,cv.CAP_GSTREAMER)
-
-    #if not camera_stream.isOpened():
-    #    print("Error reading video.")
-    #    exit(1)
-
     model = YOLO("/home/cameron/yolo_v11_custom/yolo_dataset/trained_models/best.pt")
     
     #results = []
