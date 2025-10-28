@@ -16,6 +16,7 @@ import time
 from pymavlink import mavutil
 from drone_network import swarm
 import drone_utils as utils
+#from multiprocessing import Pipe
 
 class drone():
     
@@ -168,7 +169,7 @@ class drone():
             time.sleep(1)
 
 
-    def send_global_ned_velocity(self, velocity_x, velocity_y, velocity_z, duration):
+    def send_global_ned_velocity(self, velocity_x, velocity_y, velocity_z, duration, pipe):
         """
         Move vehicle in direction based on specified velocity vectors, relative to frame.
         """
@@ -187,7 +188,9 @@ class drone():
             self.vehicle.send_mavlink(msg)
             
             MIN_DISTANCE_MI = 0.005 # ~30ft
-            gps_coords = swarm.gpsSync()
+            pipe.send("GPS")
+            gps_coords = pipe.recv()
+            #gps_coords = swarm.gpsSync(pipe)
             curr_gps = self.getLocationGlobal()
 
             distances = []
@@ -196,7 +199,7 @@ class drone():
             for distance in distances:
                 if distance < MIN_DISTANCE_MI:
                     # TODO: CORRECT TRAJECTORY
-                    pass
+                    print("Too close to another drone! Correcting.")
 
             time.sleep(1)
 
