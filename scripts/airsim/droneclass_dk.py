@@ -14,7 +14,7 @@ collections.MutableMapping = abc.MutableMapping
 from dronekit import VehicleMode, LocationGlobalRelative
 import time
 from pymavlink import mavutil
-from drone_network import swarm
+#from drone_network import swarm
 import drone_utils as utils
 #from multiprocessing import Pipe
 
@@ -32,10 +32,15 @@ class drone():
         if self.vehicle.armed == True:
             print("Vehicle armed!")
             return
-        self.vehicle.armed = True
-        while not self.vehicle.armed:
+        
+        is_armed = False
+        while not is_armed:
             print("Attempting to arm vehicle.")
-            time.sleep(1)
+            self.vehicle.armed = True
+            time.sleep(3)
+            if self.vehicle.armed:
+                is_armed = True
+
         print("Vehicle armed.")
         return
     
@@ -67,18 +72,20 @@ class drone():
         MODES = ["LAND","AUTO", "GUIDED", "STABILIZE", "LOITER", "RTL", "MANUAL"]
 
         if self.vehicle.mode == mode:
-            print("Mode already set to \"",mode,"\".")
+            print(f"Mode already set to \"{mode}\"")
             return
         if mode not in MODES:
             print("Invalid mode selection!")
             return
+        curr_mode = self.vehicle.mode
+        while not curr_mode == mode:
+            print(f"Attempting to set mode to \"{mode}\"")
+            self.vehicle.mode = VehicleMode(mode)
+            curr_mode = self.vehicle.mode
+            print("Current mode:", curr_mode)
+            time.sleep(5)
 
-        self.vehicle.mode = VehicleMode(mode) 
-        while not self.vehicle.mode.name == mode:
-            print("Attempting to set mode to \"",mode,"\".")
-            print("Current mode: ",self.vehicle.mode)
-            time.sleep(1)
-        print("Mode set to \"",mode,"\".")
+        print(f"Mode set to \"{mode}\"")
         return
 
 
@@ -192,11 +199,12 @@ class drone():
             gps_coords = pipe.recv()
             #gps_coords = swarm.gpsSync(pipe)
             curr_gps = self.getLocationGlobal()
-
+            
             distances = []
-            for gps_coord in gps_coords:
-                distances.append( utils.gpsDistance(curr_gps, gps_coord) )
+            #for gps_coord in gps_coords:
+            distances.append( utils.gpsDistance(curr_gps, gps_coords) )
             for distance in distances:
+                print(f"Distance to other drone: {distance}")
                 if distance < MIN_DISTANCE_MI:
                     # TODO: CORRECT TRAJECTORY
                     print("Too close to another drone! Correcting.")

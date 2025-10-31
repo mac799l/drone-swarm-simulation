@@ -1,6 +1,7 @@
 import math
 
 def gpsDistance(gps_1, gps_2):
+
     EARTH_RADIUS_MILES = 3963
     lat_1, long_1 = gps_1[0], gps_1[1]
     lat_2, long_2 = gps_2[0], gps_2[1]
