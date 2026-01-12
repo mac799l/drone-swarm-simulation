@@ -1,18 +1,38 @@
 """
-    Filename: single_uav_classification.py
+    Filename: airsim_single_uav_classification.py
     Author: Cameron Lira
-    Updated: 2025-08-13
+    Updated: 2026-01-11
     Project: Drone Swarm Control Using SITL and Gazebo
 
     Description:
     Commands a connected drone to follow a preset path defined in the control function.
-    It also performs classification using a Gstreamer udp video source from the Ardupilot Gazebo Gstreamer plugin using YOLO and Opencv.
+    Performs classification using images from a virtual Airsim camera and YOLO.
+    Implements a simple drone network for drone swarm coordination:
+    - Uses a simple majority-voting scheme to accomplish classification consensus.
+    - Detects distance between drones (collision avoidance to be added).
 
     NOTE: the script is currently designed to perform YOLO classification using a YOLO model trained on the MEDIC disaster dataset.
     Minor modifications would be needed to perform other tasks.
 
-    Arguments:
-    --connect PROTOCOL:IP:PORT (provide the connection information, otherwise defaults to a serial connection).
+    
+    Positional arguments:
+    connection            The IP:PORT of the drone connection (i.e. Mavproxy forwarded UDP connection).
+    airsim                The IP of the host running Airsim.
+
+    Options:
+    -h, --help            show this help message and exit
+    -p PATH, --model-path PATH
+                            The full path of a YOLO CLS model to perform classification on the drone camera images. Enables classification.
+    -s SERVER, --server-ip SERVER
+                            The IP:PORT for the drone communication server.
+    -c [CLIENTS], --client-ips [CLIENTS]
+                            The IP:PORT's of the client machines for drone communication.
+    -n NAME, --copter-name NAME
+                            The name of the drone you are accessing (i.e. in Airsim settings.json).
+    --no-networking       Disable drone networking features.
+    --no-consensus        Disable drone consensus for classification.
+    --no-avoidance        Disable drone proximity detection (collision avoidance to be added).
+
 """
 
 from collections import abc
@@ -33,8 +53,8 @@ from multiprocessing import Process, Value, Pipe
 from threading import Thread
 from functools import partial
 import socket
-
 import json
+
 
 # Detected classes for use by a YOLO model trained on the MEDIC dataset.
 class Disaster(Enum):
@@ -46,39 +66,20 @@ class Disaster(Enum):
     NOT_DISASTER = 5
     OTHER_DISASTER = 6
 
-# Global Constants
-AIRSIM_HOST_IP = '172.24.112.1'
-SERVER_IP_ADDRESS = '127.0.0.1'
-SERVER_PORT = 65288
-
-CLIENT_IP_ADDRESS = '127.0.0.1'
-CLIENT_PORT = 65289
-
-YOLO_MODEL_PATH = "/home/cameron/yolo_v11_custom/yolo_dataset/trained_models/best.pt"
-#frame_data = []
-#copter = None
-
-#clients = []
 
 # Connect to the drone.
-def connectCopter():
+def connectCopter(CONNECTION):
 
-    connection = argParser()
-    # Default to a physical connection (i.e. RaspberryPi serial connection).
-    if not connection:
-        connection = "/dev/serial0"
-        print("No connection argument! Attempting to connect over serial.")
+    print(f"Connecting to: {CONNECTION}")
 
-    print(connection)
-
-    vehicle = connect(connection, wait_ready=True)
-    return vehicle
+    copter = connect(CONNECTION, wait_ready=True)
+    return copter
 
 
 # Connected to camera stream.
-def connectCamera():
+def connectAirsim(AIRSIM_IP):
 
-    client = airsim.MultirotorClient(ip=AIRSIM_HOST_IP)
+    client = airsim.MultirotorClient(ip=AIRSIM_IP)
     client.confirmConnection()
     client.enableApiControl(True)
 
@@ -86,19 +87,20 @@ def connectCamera():
 
 
 # Perform classification on the camera stream.
-def classificationYOLO(pipe, cls_enum, copter):
+def classificationYOLO(pipe, cls_enum, copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, VEHICLE_NAME):
 
-    client = connectCamera()
+    airsim_client = connectAirsim(AIRSIM_IP)
     print("Camera connected.")
 
     DETECTION_THRESHOLD = 0.5
-    model = YOLO(YOLO_MODEL_PATH)
+    model = YOLO(MODEL_PATH)
     frame_data = []
     frame_data.append([0,"NOT_DISASTER", 0, [0,0,0]])
+    consensus_reached = True
     time.sleep(5)
     while True:
         #time.sleep(1)
-        frame = client.simGetImage("0", airsim.ImageType.Scene, vehicle_name="Copter0")
+        frame = airsim_client.simGetImage("0", airsim.ImageType.Scene, vehicle_name=VEHICLE_NAME)
         nparr = np.frombuffer(frame, np.uint8)
         img = cv.imdecode(nparr, cv.IMREAD_COLOR)
 
@@ -119,16 +121,17 @@ def classificationYOLO(pipe, cls_enum, copter):
         
         # Get consensus from other drones.
         #consensus_reached, enum_name = swarm.consensus(enum_name)
-        pipe.send("CLS")
-        drone_2_cls = pipe.recv()
+        if USE_CONSENSUS:
+            pipe.send("CLS")
+            swarm_cls = pipe.recv()
 
-        #drone_2_cls = Disaster(drone_2_cls).name
-        
-        #print(f"Drone_2_cls: {drone_2_cls}.")
+            #drone_2_cls = Disaster(drone_2_cls).name
+            #print(f"Drone_2_cls: {drone_2_cls}.")
 
-        consensus_reached = False
-        if enum_name == drone_2_cls and enum_name != "NOT_DISASTER":
-            consensus_reached = True
+            consensus_reached = False
+            for cls in swarm_cls:
+                if enum_name == cls and enum_name != "NOT_DISASTER":
+                    consensus_reached = True
 
         if consensus_reached and confidence > DETECTION_THRESHOLD:
             print("Detected class:", enum_name ,"-- Probability:",'{0:.2f}'.format(confidence.item()), " -- GPS:", location)
@@ -151,9 +154,8 @@ def classificationYOLO(pipe, cls_enum, copter):
     return
 
 
+# Controls the drone's flight path.
 def droneControl(pipe, copter):
-
-
 
     print(f"Copter: {copter}")
 
@@ -182,26 +184,30 @@ def droneControl(pipe, copter):
 
     return
 
+
 # Handle server and client coroutines.
-async def network(cls_pipe, ctrl_pipe, cls_enum, copter):
+async def network(cls_pipe, ctrl_pipe, cls_enum, copter, server, clients):
     await asyncio.gather(
-        server(cls_enum, copter),
+        server(cls_enum, copter, server),
         client(cls_pipe, ctrl_pipe)
     )
     return
 
+
 # Asyncronously handle server and client requests.
-async def server(cls_enum, copter):
-    print(f"Starting server at {SERVER_IP_ADDRESS}:{SERVER_PORT}")
+async def server(cls_enum, copter, server):
+    ip, port = server.split(":")
+    print(f"Starting server at {ip}:{port}")
     server = await asyncio.start_server(
-        partial(handleClient, cls_enum = cls_enum, copter=copter),
-        host=SERVER_IP_ADDRESS,
-        port=SERVER_PORT
+        partial(handleClient, cls_enum=cls_enum, copter=copter),
+        host=ip,
+        port=port
     )
     
     async with server:
         await server.serve_forever()
     return
+
 
 # Serve client(s) with requested data (see getResponse()).
 async def handleClient(reader, writer, cls_enum, copter):
@@ -241,6 +247,7 @@ async def handleClient(reader, writer, cls_enum, copter):
     return
 
 
+# Helper function to retreive the requested message for a client.
 def getResponse(msg, cls_enum, copter):
     match msg:
         case "CLS":
@@ -260,17 +267,21 @@ def getResponse(msg, cls_enum, copter):
         case "__CLOSE__":
             return {"STATUS": "OK", "TYPE": "EXIT", "MSG": "__CLOSE__"}
 
+
 # Asyncronously handle client messages and subsequent server responses.
-async def client(cls_pipe, ctrl_pipe):
+async def client(cls_pipe, ctrl_pipe, clients, ports):
     RETRY_DELAY = 5
-    while True:
-        try:
-            reader, writer = await asyncio.open_connection(CLIENT_IP_ADDRESS, CLIENT_PORT)
-            print("Connected!")
-            break
-        except (ConnectionRefusedError, socket.gaierror, OSError) as error:
-            print(f"Connection failed: {error}. Retrying in {RETRY_DELAY} secs...")
-            await asyncio.sleep(RETRY_DELAY)
+    CONNECTION_ATTEMPTS = 3
+    for attempt in range(CONNECTION_ATTEMPTS):
+        for client in clients:
+            ip, port = client.split(":")
+            try:
+                reader, writer = await asyncio.open_connection(ip, port)
+                print("Connected!")
+                break
+            except (ConnectionRefusedError, socket.gaierror, OSError) as error:
+                print(f"Attempt #{attempt + 1}. Connection failed: {error}. Retrying in {RETRY_DELAY} seconds...")
+                await asyncio.sleep(RETRY_DELAY)
 
     print("Connected to server.")
 
@@ -280,27 +291,11 @@ async def client(cls_pipe, ctrl_pipe):
         sender(writer, send_queue),
         cls_pipe_reader(send_queue, cls_pipe),
         ctrl_pipe_reader(send_queue, ctrl_pipe)
-        #background_data_source(cls_pipe, ctrl_pipe, send_queue)
     )
 
     return
 
-'''
-async def background_data_source(cls_pipe, ctrl_pipe, send_queue):
-    # TODO: Handle CTRL pipe.
-    cls_data_available = asyncio.Event()
-    #ctrl_data_available = asyncio.Event()
-    asyncio.get_event_loop().add_reader(cls_pipe.fileno(), cls_data_available.set)
-    #asyncio.get_event_loop().add_reader(ctrl_pipe.fileno(), ctrl_data_available.set)
-    while True:
-        while not cls_pipe.poll():
-            await cls_data_available.wait()
-            cls_data_available.clear()
-        msg = cls_pipe.recv()
-        if msg == "__CLOSE__":
-            break
-        send_queue.put(msg)
-'''
+
 # Asyncronously listen for messages from the classification process.
 async def cls_pipe_reader(send_queue, cls_pipe):
 
@@ -379,19 +374,87 @@ async def receiver(reader, cls_pipe, ctrl_pipe):
 
 def argParser():
 
-    parser = argparse.ArgumentParser(description='commands')
-    parser.add_argument('--connect')
+    parser = argparse.ArgumentParser(description='Airsim drone script with optional networking.')
+    parser.add_argument(
+        'connection',
+         type=str,
+         help="The IP:PORT of the drone connection (i.e. Mavproxy forwarded UDP connection)."
+    )
+    parser.add_argument(
+        'airsim',
+         type=str,
+         help="The IP of the host running Airsim."
+    )
+    parser.add_argument(
+        '-p', '--model-path',
+         type=str,
+         dest='path',
+         nargs=1,
+         help="The full path of a YOLO CLS model to perform classification on the drone camera images. Enables classification."
+    )
+    parser.add_argument(
+        '-s', '--server-ip',
+         type=str,
+         dest='server',
+         nargs=1,
+         help="The IP:PORT for the drone communication server."
+    )
+    parser.add_argument(
+        '-c', '--client-ips',
+         type=str,
+         dest='clients',
+         nargs="?",
+         help="The IP:PORT's of the client machines for drone communication."
+    )
+    parser.add_argument(
+        '-n', '--copter-name',
+         type=str,
+         dest='name',
+         nargs=1,
+         help="The name of the drone you are accessing (i.e. in Airsim settings.json)."
+    )
+    parser.add_argument(
+         '--no-networking',
+         action="store_false",
+         dest='networking',
+         help="Disable drone networking features."
+    )
+    parser.add_argument(
+         '--no-consensus',
+         action="store_false",
+         dest='consensus',
+         help="Disable drone consensus for classification."
+    )
+    parser.add_argument(
+         '--no-avoidance',
+         action="store_false",
+         dest='avoidance',
+         help="Disable drone proximity detection."
+    )
+
     args = parser.parse_args()
-    connection = args.connect
     
-    return connection
+    return args
 
 
 def main():
 
-    copter_connection = connectCopter()
+    args = argParser()
+    copter_connection = connectCopter(args.connection)
     copter = drone(copter_connection)
     print("Copter connected.")
+
+    if args.networking and args.server and args.client:
+        print("Networking enabled.")
+        network_enabled = True
+    else:
+        print("Networking disabled.")
+        network_enabled = False
+        
+    if not args.name:
+        drone_name = "Copter"
+    else:
+        drone_name = args.name
 
     # Create pipes for process network communication.
     par_cls, child_cls = Pipe()
@@ -400,61 +463,29 @@ def main():
     cls_enum = Value('i', 5)
 
     # Process 1: handle classification
-    classification_p = Process(target=classificationYOLO, args=(child_cls, cls_enum, copter, ))
-
-    # Process 2: handle drone commands
-    #control_p = Process(target=droneControl, args=(child_ctrl,))
+    cls_process = Process(
+        target=classificationYOLO,
+        args=(child_cls, cls_enum, copter, args.airsim, args.path, network_enabled, drone_name)
+    )
     
-    control_thread = Thread(target=droneControl, args=(child_ctrl, copter,))
+    ctrl_thread = Thread(target=droneControl, args=(child_ctrl, copter,))
 
-    # Process 3: handle server/client communication
-    #server_p = Process(target=droneServer, args=(par_cls, par_cont,))
-    #processes.append(server_p)
-
-    processes = [classification_p, control_thread]
+    processes = [cls_process, ctrl_thread]
 
     for process in processes:
         print(f"Starting {process} process!")
         process.start()
 
-    #asyncio.run(server())
-    asyncio.run(network(par_cls, par_ctrl, cls_enum, copter))
+    if network_enabled:
+        asyncio.run(
+            network(par_cls, par_ctrl, cls_enum, copter, )
+        )
 
     for process in processes:
         process.join()
 
-
-
-
-    '''
-    copter_connection = connectCopter()
-    client = connectCamera()
-
-    copter = drone(copter_connection)
-
-    drone_operations = [droneControl,classificationYOLO]
-    arguments = [[copter,], [client, copter]]
-    threads = []
-
-    for i, arg in enumerate(arguments):
-        thread = threading.Thread(target=drone_operations[i], args=arg)
-        threads.append(thread)
-
-    for thread in threads:
-        thread.start()
-
-    asyncio.run(server)
-
-    for thread in threads:
-        thread.join()
-
-    '''
-
     time.sleep(1)
-    print("Finished script. Closing connections.")
-
-    # Close connections.
-    #copter_connection.close()
+    print("Finished script. Connections closed.")
 
 
 if __name__ == "__main__":
