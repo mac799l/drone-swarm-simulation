@@ -30,10 +30,10 @@ After installing UE5, we can install Colloseum. I will be following the official
 
 The first step is to clone the repository into the folder of your choice (a seperate drive, i.e. not your `C` drive, is recommended). To do this, we will open the `Visual Studio 2022 Developer Command Prompt` from the search bar.
 
-PICTURE
 
+<img width="754" height="245" alt="Screenshot 2026-01-07 222256" src="https://github.com/user-attachments/assets/8ab4a2f7-1e40-4b11-a6ef-c748fe1d79a4" />
 
-PICTURE
+<img width="1113" height="620" alt="Screenshot 2026-01-07 222532" src="https://github.com/user-attachments/assets/b22cda9f-70b4-4a95-a932-58532985a92c" />
 
 
 If you are cloning to a drive other than your `C` drive, you can change the selected drive by inputting the drive letter you want to change to as shown below, such as changing to drive `D`:
@@ -64,17 +64,15 @@ Now we can test the included environment in Unreal Engine. There are a few ways 
 
 To do this, simply navigate to `Colloseum/Unreal/Environments/BlocksV2` folder and double-click the `BlocksV2.sln` Visual Studio solution file.
 
-IMAGE
-
 Once Visual Studio opens, select the drop-down menu from the `Start` button and choose to `Configure Startup Projects...`. From there, change the startup project from `UE5` to `BlocksV2`. Now you can start the environment using the start button, which should now say: `Local Windows Debugger`:
 
-IMAGE
+<img width="1892" height="633" alt="Screenshot 2026-01-08 171709" src="https://github.com/user-attachments/assets/03769d47-4875-4a67-9d93-390fdaac1202" />
 
-IMAGE
+<img width="866" height="659" alt="Screenshot 2026-01-08 171724" src="https://github.com/user-attachments/assets/729fd9ef-842f-48f7-9158-cf71e7007904" />
 
 The first start up will take some time, but once it completes you should see something like this:
 
-IMAGE
+<img width="2559" height="1392" alt="Screenshot 2026-01-08 172005" src="https://github.com/user-attachments/assets/03171ff0-5521-44dc-8327-c86afa8700ba" />
 
 #### Drone Configuration
 In contrast to Gazebo, this step is much simpler and will only require editing a single configuration file. To do this navigate to your documents folder: `Documents/Airsim/`. There should be a single `setting.json` file.
