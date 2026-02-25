@@ -197,12 +197,12 @@ class drone():
             MIN_DISTANCE_MI = 0.005 # ~30ft
             pipe.send("GPS")
             gps_coords = pipe.recv()
-            #gps_coords = swarm.gpsSync(pipe)
+
             curr_gps = self.getLocationGlobal()
             
             distances = []
-            #for gps_coord in gps_coords:
-            distances.append( utils.gpsDistance(curr_gps, gps_coords) )
+            for gps_coord in gps_coords:
+                distances.append( utils.gpsDistance(curr_gps, gps_coord) )
             for distance in distances:
                 print(f"Distance to other drone: {distance}")
                 if distance < MIN_DISTANCE_MI:

@@ -1,11 +1,11 @@
 """
     Filename: airsim_camera_stream.py
     Author: Cameron Lira
-    Updated: 2025-08-24
+    Updated: 2026-02-24
     Project: Drone Swarm Simulation
 
     Description: 
-        Displays images from the camera of a two simulated drones in Airsim using the Airsim API and Opencv.
+        Streams images from a drone camera in Airsim using the Airsim API and OpenCV. Press 'q' to close the stream window.
 """
 
 import airsim
@@ -15,29 +15,21 @@ import numpy as np
 AIRSIM_HOST_IP = "172.24.112.1"
 
 # connect to the AirSim simulator
-client = airsim.MultirotorClient(ip=AIRSIM_HOST_IP)
-client.confirmConnection()
-client.enableApiControl(True)
+airsim_client = airsim.MultirotorClient(ip=AIRSIM_HOST_IP)
+airsim_client.confirmConnection()
+airsim_client.enableApiControl(True)
 
 # Select the front camera.
 CAMERA_SELECTION = "0"
-DRONE_NAME_1 = "Copter"
-DRONE_NAME_2 = "Copter2"
+DRONE_NAME = "Copter0"
 
-responses = client.simGetImage(CAMERA_SELECTION, airsim.ImageType.Scene, vehicle_name=DRONE_NAME_1)
 
-responses2 = client.simGetImage(CAMERA_SELECTION, airsim.ImageType.Scene, vehicle_name=DRONE_NAME_2)
+while True:
+    frame = airsim_client.simGetImage('0', airsim.ImageType.Scene, vehicle_name=DRONE_NAME)
+    nparr = np.frombuffer(frame, np.uint8)
+    img = cv.imdecode(nparr, cv.IMREAD_COLOR)
+    cv.imshow('Camera feed',img)
 
-print('Retrieved images: %d', len(responses))
-
-nparr = np.frombuffer(responses, np.uint8)
-img_np = cv.imdecode(nparr, cv.IMREAD_COLOR)
-
-nparr2 = np.frombuffer(responses2, np.uint8)
-img_np2 = cv.imdecode(nparr2, cv.IMREAD_COLOR)
-
-# Display an image from each drone.
-cv.imshow('',img_np)
-cv.waitKey(0)
-cv.imshow('',img_np2)
-cv.waitKey(0)
+    # Press 'q' from the camera window to stop classification.
+    if cv.waitKey(1) == ord('q'):
+        break
