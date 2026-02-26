@@ -20,6 +20,16 @@ void PrintSocketAddress(const struct sockaddr *address, FILE *stream);
 
 u_int8_t NUM_STATES = 4;
 
+enum DisasterCls {
+    EARTHQUAKE = 0,
+    FIRE = 1,
+    FLOOD = 2,
+    HURRICANE = 3,
+    LANDSLIDE = 4,
+    NOT_DISASTER = 5,
+    OTHER_DISASTER = 6
+};
+
 int main(int argc, char *argv[]) {
 
     const char DELIM = ':';
@@ -27,7 +37,9 @@ int main(int argc, char *argv[]) {
     if (argc != 2) // Test for correct number of arguments
         DieWithUserMessage("Parameter(s)", "<Server Port/Service>");
 
-    // Example provided IP:PORT values. Will be a CL argument.
+    char *service = argv[1]; // First arg: local port/service
+
+        // Example provided IP:PORT values. Will be a CL argument.
     char *ipPorts[NUM_STATES];
     ipPorts[0] = strdup("192.168.12.1:65288");
     ipPorts[1] = strdup("192.168.12.2:65288");
@@ -37,7 +49,6 @@ int main(int argc, char *argv[]) {
     char *ip[NUM_STATES];
     char *port[NUM_STATES];
 
-    char *tokens;
     for (int i = 0; i < NUM_STATES; i++) {
         ip[i] = strtok(ipPorts[i], &DELIM);
         port[i] = strtok(NULL, "\n");
@@ -47,20 +58,6 @@ int main(int argc, char *argv[]) {
         printf("Client #%d, IP: %s, Port: %s\n", i, ip[i], port[i]);
     }
 
-
-    /*
-    struct State {
-    struct GPS gpsState;
-    u_int64_t seqNum;
-    struct in_addr ipv4;
-    time_t timestamp; // TODO: change to long long before 2038.
-    u_int16_t port;
-    u_int8_t classification;
-    bool isValid;
-} state_vector;
-
-    */
-
     // Create state vector.
     struct State *stateVector[NUM_STATES];
     for (int i = 0; i < NUM_STATES; i++) {
@@ -69,15 +66,23 @@ int main(int argc, char *argv[]) {
         if (state == NULL) {
             DieWithSystemMessage("malloc memory allocation failed.");
         }
-        // Initial sequence number.
+        struct GPS *gps = (struct GPS*)malloc(sizeof(struct GPS));
+        gps->longitude = 0.0;
+        gps->latitude = 0.0;
+        gps->altitude = 0.0;
+        time_t now = time(NULL);
+        
+        // Load default state into state vector.
+        inet_pton(AF_INET, ipPorts[i], &state->ipv4);
+        state->port = atoi(port[i]);
+        state->gpsState = gps;
         state->seqNum = 0;
-        // Load IP:PORT data into state vector.
-        inet_aton(ipPorts[i], &state->ipv4);
-        state->port = port[i];
+        state->timestamp = now;//gmtime(now);
+        state->classification = NOT_DISASTER;
+        state->isValid = false;
+        // Set vector.
         stateVector[i] = state;
     }    
-
-    char *service = argv[1]; // First arg: local port/service
 
     // Construct the server address structure
     struct addrinfo addrCriteria; // Criteria for address
@@ -137,17 +142,24 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < NUM_STATES; i++) {
             printf("stateVector %d\n", i);
             struct State *curr_state = stateVector[i];
-            //if (curr_state->ipv4 == rcv_state->ipv4 && curr_state->seqNum < rcv_state->seqNum) {
-            //    RequestNewData(rcv_state, curr_state->seqNum);
-            //}
+            if (curr_state->ipv4.s_addr == rcv_state->ipv4.s_addr && curr_state->seqNum < rcv_state->seqNum) {
+                RequestNewData(rcv_state, curr_state->seqNum);
+                UpdateState(curr_state, rcv_state);
+                //curr_state = rcv_state;
+            }
         }
     }
     // NOT REACHED
 }
 
 void RequestNewData(struct State* rcv_state, int seq_num) {
-    printf("NEWER DATA DETECTED. SETTING SEQ NUM: %d to %ld", seq_num, rcv_state->seqNum);
+    printf("NEWER DATA DETECTED. SETTING SEQ NUM: %d to %ld\n", seq_num, rcv_state->seqNum);
     //rcv_state->seq_num = seq_num
+}
+
+void UpdateState(struct State* curr_state, struct State* new_state){
+    curr_state->classification = new_state->classification;
+    curr_state->gpsState
 }
 
 

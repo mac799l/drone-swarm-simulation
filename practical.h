@@ -20,6 +20,7 @@ File Description:
 #include <sys/socket.h>
 #include <netdb.h>
 #include <stdbool.h>
+#include <time.h>
 
 extern int MAXSTRINGLENGTH;
 extern int IPV4_ADDRESS_LEN;
@@ -32,7 +33,7 @@ struct GPS {
 } gps;
 
 struct State {
-    struct GPS gpsState;
+    struct GPS *gpsState;
     u_int64_t seqNum;
     struct in_addr ipv4;
     time_t timestamp; // TODO: change to long long before 2038.

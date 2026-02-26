@@ -33,6 +33,7 @@ int main(int argc, char *argv[]) {
     struct addrinfo addrCriteria; // Criteria for address match
     memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure
     addrCriteria.ai_family = AF_UNSPEC; // Any address family
+
     // For the following fields, a zero value means "don't care"
     addrCriteria.ai_socktype = SOCK_DGRAM; // Only datagram sockets
     addrCriteria.ai_protocol = IPPROTO_UDP; // Only UDP protocol
@@ -92,7 +93,9 @@ int main(int argc, char *argv[]) {
     freeaddrinfo(servAddr);
 
     //buffer[echoStringLen] = '\0'; // Null-terminate received data
-    printf("Received: %d, %d, %ld\n", rcv_state->ipv4.s_addr, rcv_state->port, rcv_state->seqNum); // Print the echoed string
+    char ip[24];
+    inet_ntop(AF_INET, &rcv_state->ipv4.s_addr, ip, 24); 
+    printf("Received: %s, %d, %ld\n", ip, rcv_state->port, rcv_state->seqNum); // Print the echoed string
     close(sock);
     exit(0);
     }
