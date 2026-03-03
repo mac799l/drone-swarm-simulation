@@ -11,13 +11,14 @@ File Description:
 #ifndef PRACTICAL_H
 #define PRACTICAL_H
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/epoll.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netdb.h>
 #include <stdbool.h>
 #include <time.h>
@@ -30,7 +31,7 @@ struct GPS {
     float latitude;
     float longitude;
     float altitude;
-} gps;
+};
 
 struct State {
     struct GPS *gpsState;
@@ -40,7 +41,7 @@ struct State {
     u_int16_t port;
     u_int8_t classification;
     bool isValid;
-} state_vector;
+};
 
 void DieWithUserMessage(const char *msg, const char *detail);
 

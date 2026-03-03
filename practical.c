@@ -7,9 +7,7 @@ File Description:
     Defines helper functions and constants for udp_server.c and udp_client.c
 
 */
-
-#include <stdio.h>
-#include <stdlib.h>
+#include "practical.h"
 
 int MAXSTRINGLENGTH = 64;
 int IPV4_ADDRESS_LEN = 16;
