@@ -8,12 +8,16 @@ LDFLAGS =                         # add libraries here if needed (e.g. -lpthread
 # Source files
 CLIENT_SRC  = udp_client.c
 SERVER_SRC  = udp_server.c
-SHARED_SRC  = practical.c
+PRACTICAL_SRC  = practical.c
+AES_SRC = aes.c
+CJSON_SRC = cJSON.c
 
 # Object files
 CLIENT_OBJ  = $(CLIENT_SRC:.c=.o)
 SERVER_OBJ  = $(SERVER_SRC:.c=.o)
-SHARED_OBJ  = $(SHARED_SRC:.c=.o)
+SHARED_OBJ  = $(PRACTICAL_SRC:.c=.o)
+AES_SRC_OBJ = $(AES_SRC:.c=.o)
+CJSON_SRC_OBJ = $(CJSON_SRC:.c=.o)
 
 # Executables
 CLIENT_EXE  = udp_client
@@ -27,7 +31,7 @@ $(CLIENT_EXE): $(CLIENT_OBJ) $(SHARED_OBJ)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 # Link server executable
-$(SERVER_EXE): $(SERVER_OBJ) $(SHARED_OBJ)
+$(SERVER_EXE): $(SERVER_OBJ) $(SHARED_OBJ) $(AES_SRC_OBJ) $(CJSON_SRC_OBJ)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 # Pattern rule: compile any .c to .o
