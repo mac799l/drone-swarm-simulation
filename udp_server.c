@@ -188,17 +188,18 @@ void *serverThread() {
     freeaddrinfo(servAddr);
 
     // Prepare for encryption/decryption.
-    //struct AES_ctx ctx;
-    //AES_init_ctx_iv(&ctx, key, iv);
+    struct AES_ctx ctx;
+    AES_init_ctx_iv(&ctx, key, iv);
 
     for (;;) { // Run forever
-        struct State rcv_state;
+        struct State *rcv_state = (struct State *)malloc(sizeof(struct State));
         struct sockaddr_storage clntAddr; // Client address
         // Set Length of client address structure (in-out parameter)
         socklen_t clntAddrLen = sizeof(clntAddr);
 
+        //char rcv_buf[sizeof(struct State)];
         // Block until receive message from a client
-        ssize_t numBytesRcvd = recvfrom(sock, &rcv_state, sizeof(struct State), 0,
+        ssize_t numBytesRcvd = recvfrom(sock, rcv_state, sizeof(struct State), 0,
             (struct sockaddr *) &clntAddr, &clntAddrLen);
         if (numBytesRcvd < 0)
             DieWithSystemMessage("recvfrom() failed");
@@ -208,17 +209,17 @@ void *serverThread() {
         fputc('\n', stdout);
 
         //Decrypt message
-        //AES_CTR_xcrypt_buffer(&ctx, in, 64);
+        AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)rcv_state, numBytesRcvd);
 
         for (int i = 0; i < num_clients; i++) {
             printf("Server: check stateVector %d\n", i);
             pthread_mutex_lock(&mutex);
             struct State curr_state = state_vector[i];
             //curr_state.seqNum++;
-            if (curr_state.ipv4.s_addr == rcv_state.ipv4.s_addr && curr_state.seqNum < rcv_state.seqNum) {
+            if (curr_state.ipv4.s_addr == rcv_state->ipv4.s_addr && curr_state.seqNum < rcv_state->seqNum) {
                 printf("Server: set new data\n");
                 //RequestNewData(rcv_state, curr_state.seqNum);
-                state_vector[i] = rcv_state;
+                state_vector[i] = *rcv_state;
                 pthread_mutex_unlock(&mutex);
                 break;
             }
@@ -226,6 +227,15 @@ void *serverThread() {
         }
     }
     // NOT REACHED
+}
+
+void print_struct_bytes(void *ptr, size_t size) {
+    uint8_t *bytes = (uint8_t *)ptr;
+
+    for (size_t i = 0; i < size; i++) {
+        printf("%02X ", bytes[i]);
+    }
+    printf("\n");
 }
 
 void *clientThread() {
@@ -253,16 +263,24 @@ void *clientThread() {
     if (sock < 0)
         DieWithSystemMessage("socket() failed");
     
-
-    //struct AES_ctx ctx;
-    //AES_init_ctx_iv(&ctx, key, iv);
-    //AES_CTR_xcrypt_buffer(&ctx, in, 64);
+    // Prepare for encryption.
+    struct AES_ctx ctx;
+    AES_init_ctx_iv(&ctx, key, iv);
 
     while(true){
         struct State curr_state;
 
+        struct State *local = (struct State *)malloc(sizeof(struct State));
+        if (local == NULL){
+            DieWithSystemMessage("malloc() failed");
+        }
+        memcpy(local, local_state, sizeof(struct State));
+
+        // Encrypt
+        AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)local, sizeof(struct State));
+
         // Send to the server
-        ssize_t numBytes = sendto(sock, &local_state, sizeof(struct State), 0,
+        ssize_t numBytes = sendto(sock, local, sizeof(struct State), 0,
         servAddr->ai_addr, servAddr->ai_addrlen);
         if (numBytes < 0)
             DieWithSystemMessage("sendto() failed");
@@ -276,8 +294,12 @@ void *clientThread() {
             state_vector[i].seqNum++; // FOR TESTING
             curr_state = state_vector[i];
             if (curr_state.isValid){
+                local = &curr_state;
+                // Encrypt
+                AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)local, sizeof(struct State));
                 printf("Client: sending state %d -- %s:%d.\n", i, inet_ntoa(state_vector[i].ipv4), state_vector[i].port);
-                ssize_t numBytes = sendto(sock, &curr_state, sizeof(struct State), 0, servAddr->ai_addr, servAddr->ai_addrlen);
+                ssize_t numBytes = sendto(sock, local, sizeof(struct State), 0, servAddr->ai_addr, servAddr->ai_addrlen);
+                
                 if (numBytes < 0)
                     DieWithSystemMessage("sendto() failed");
                 else if (numBytes != sizeof(struct State))
