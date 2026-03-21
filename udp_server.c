@@ -7,7 +7,7 @@ Description:
     Creates the UDP server and client.
 
 Arguments:
-[SERVER IP:PORT] [# CLIENTS] ([CLIENT IP:PORT]s)
+[SERVER IP:PORT] [read pipe fd] [write pipe fd] [# CLIENTS] ([CLIENT IP:PORT]s)
 */
 
 #define CTR 1
@@ -17,22 +17,21 @@ Arguments:
 
 #include "practical.h"
 #include "aes.h"
-// POSIX Semaphores 
-//#include <sys/sem.h>
-// POSIX Shared Memory
-//#include <sys/shm.h>
-
 #include <pthread.h>
 #include <time.h>
 #include "cJSON.h"
 
-void PrintSocketAddress(const struct sockaddr *address, FILE *stream);
-void *clientThread();
 void *serverThread();
-cJSON *stateToJson(struct State *s);
+void *clientThread();
+void *localPipeThread(void *arg);
+void *vectorPipeThread(void *arg);
+cJSON *stateToJson(int id, struct State *s);
 int jsonToState(char *json, struct State *s);
+void printStructBytes(void *ptr, size_t size);
+void PrintSocketAddress(const struct sockaddr *address, FILE *stream);
 
-
+// Detected classes for use by a YOLO model trained on the MEDIC disaster dataset.
+// Can be updated to match your specific model.
 enum disasterCls {
     EARTHQUAKE = 0,
     FIRE = 1,
@@ -56,28 +55,38 @@ uint8_t key[16] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 
 
 int main(int argc, char *argv[]){
 
+    printf("Num args: %d\n", argc);
+
+    for (int i = 0; i < argc; i++) {
+        printf("argv[%d]: %s\n", i, argv[i]);
+    }
     /* ------------------ Setup ------------------ */
     const char DELIM = ':';
-    num_clients = atoi(argv[2]);
+    num_clients = atoi(argv[4]);
 
     server_ip = strtok(argv[1], &DELIM);
     server_port = strtok(NULL, "\0");
 
+    int *local_pipe_r = malloc(sizeof(int));
+    int *vector_pipe_w = malloc(sizeof(int));
+    *local_pipe_r = atoi(argv[2]);
+    *vector_pipe_w = atoi(argv[3]);
+
     printf("Server ip: %s, server port: %s. \n", server_ip, server_port);
 
-    if (argc != 3 + num_clients){
+    if (argc != 5 + num_clients){
         DieWithUserMessage("Parameter(s)", "Incorrect number of arguments");
     } // Test for correct number of arguments
 
-    if (num_clients < 0){
-        DieWithUserMessage("Parameter(s)", "# of CLIENTS must be >= 0.");
+    if (num_clients <= 0){
+        DieWithUserMessage("Parameter(s)", "# of CLIENTS must be > 0.");
     }
 
     char *ipPorts[num_clients];
 
-    for (int i = 3; i < 3 + num_clients; i++){
-        ipPorts[i-3] = argv[i];
-        printf("ipPorts[%d]: %s \n", i-3, ipPorts[i-3]);
+    for (int i = 5; i < 5 + num_clients; i++){
+        ipPorts[i-5] = argv[i];
+        printf("ipPorts[%d]: %s \n", i-3, ipPorts[i-5]);
     }
 
     char *ips[num_clients];
@@ -95,7 +104,6 @@ int main(int argc, char *argv[]){
     }
     
     // Create state vector.
-    //struct State *stateVector[num_states];
     state_vector = (struct State*)malloc(sizeof(struct State) * num_clients);
     for (int i = 0; i < num_clients; i++) {
         
@@ -148,13 +156,112 @@ int main(int argc, char *argv[]){
     //return 0;
     pthread_t server_thread;
     pthread_t client_thread;
+    pthread_t local_pipe_thread;
+    pthread_t vector_pipe_thread;
 
     pthread_create(&server_thread, NULL, serverThread, NULL);
     pthread_create(&client_thread, NULL, clientThread, NULL);
+    pthread_create(&local_pipe_thread, NULL, localPipeThread, local_pipe_r);
+    pthread_create(&vector_pipe_thread, NULL, vectorPipeThread, vector_pipe_w);
 
     pthread_join(server_thread, NULL);
     pthread_join(client_thread, NULL);
+    pthread_join(local_pipe_thread, NULL);
+    pthread_join(vector_pipe_thread, NULL);
+    return 0;
+}
 
+// Monitor pipe for data from Python program.
+void *localPipeThread(void *arg){
+    FILE *fp = fdopen(*(int *)arg, "r");
+    struct State *s = (struct State *) malloc(sizeof(struct State));    
+    while(true){
+        char buf[100];
+        if (fgets(buf, sizeof(buf), fp) == NULL){
+            fflush(fp);
+            continue;
+        }
+
+        memset(s, 0, sizeof(struct State));
+        // Convert JSON message to state elements (GPS, Classification, etc)
+        int i = jsonToState(buf, s);
+        if (i == 1){
+            printf("Failed to parse JSON.\n");
+            continue;
+        }
+        // Update local state.
+        pthread_mutex_lock(&local_mutex);
+        memcpy(local_state->gpsState, s->gpsState, sizeof(struct GPS));
+        memcpy(&local_state->classification, &s->classification, sizeof(u_int8_t));
+        local_state->timestamp = time(NULL);
+        local_state->seqNum += 1;
+        pthread_mutex_unlock(&local_mutex);
+    }
+}
+
+// Send new state vector data to Python program.
+void *vectorPipeThread(void *arg){
+    FILE *fp = fdopen(*(int *)arg, "w");
+    while(true){
+        pthread_mutex_lock(&mutex);
+        // Send each state through pipe as a JSON object.
+        for(int i = 0; i < num_clients; i++){
+            cJSON *object = stateToJson(i, &state_vector[i]);
+            char *json_str = cJSON_PrintUnformatted(object);
+            fprintf(fp, "%s\n", json_str);
+            fflush(fp);
+        }
+        pthread_mutex_unlock(&mutex);
+        sleep(1); 
+    }
+}
+
+cJSON *stateToJson(int id, struct State *s){
+    cJSON *json = cJSON_CreateObject();
+    
+    cJSON_AddNumberToObject(json, "id", id);
+    cJSON_AddBoolToObject(json, "is_valid", s->isValid);
+    //char ip[20];
+    //inet_ntop(AF_INET, &s->ipv4, ip, strlen(ip));
+    //cJSON_AddStringToObject(json, "ip", ip);
+    //cJSON_AddNumberToObject(json, "port", s->port);
+    cJSON_AddNumberToObject(json, "seq_num", s->seqNum);
+    //cJSON_AddNumberToObject(json, "timestamp", s->timestamp);
+    cJSON_AddNumberToObject(json, "classification", s->classification);
+    cJSON *gps = cJSON_AddArrayToObject(json, "gps");
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->latitude));
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->longitude));
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->altitude));
+    return json;
+}
+
+
+int jsonToState(char *json, struct State *s){
+    cJSON *parse = cJSON_Parse(json);
+    if (!parse){
+        return 1;
+    }
+
+    //cJSON *is_valid = cJSON_GetObjectItem(parse, "is_valid");
+    //cJSON *ip = cJSON_GetObjectItem(parse, "ip");
+    //cJSON *port = cJSON_GetObjectItem(parse, "port");
+    //cJSON *seq_num = cJSON_GetObjectItem(parse, "seq_num");
+    //cJSON *timestamp = cJSON_GetObjectItem(parse, "timestamp");
+    cJSON *classification = cJSON_GetObjectItem(parse, "classification");
+    cJSON *gps = cJSON_GetObjectItem(parse, "gps");
+
+    s->gpsState->latitude = cJSON_GetArrayItem(gps, 0)->valuedouble;
+    s->gpsState->longitude = cJSON_GetArrayItem(gps, 1)->valuedouble;
+    s->gpsState->altitude = cJSON_GetArrayItem(gps, 2)->valuedouble;
+
+    //s->isValid = is_valid->valueint;
+    //inet_pton(AF_INET, ip->valuestring, &s->ipv4);
+    //s->port = port->valueint;
+    //s->seqNum = seq_num->valueint;
+    //s->timestamp = timestamp->valueint;
+    s->classification = classification->valueint;
+
+    cJSON_Delete(parse);
     return 0;
 }
 
@@ -191,6 +298,7 @@ void *serverThread() {
     struct AES_ctx ctx;
     AES_init_ctx_iv(&ctx, key, iv);
 
+    //int current = 0;
     for (;;) { // Run forever
         struct State *rcv_state = (struct State *)malloc(sizeof(struct State));
         struct sockaddr_storage clntAddr; // Client address
@@ -204,32 +312,35 @@ void *serverThread() {
         if (numBytesRcvd < 0)
             DieWithSystemMessage("recvfrom() failed");
 
-        fputs("Server: Handling client ", stdout);
-        PrintSocketAddress((struct sockaddr *) &clntAddr, stdout);
-        fputc('\n', stdout);
+        //printf("Server: Handling client: ");
+        //PrintSocketAddress((struct sockaddr *) &clntAddr, stdout);
+        //printf('\n');
 
         //Decrypt message
         AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)rcv_state, numBytesRcvd);
 
+        pthread_mutex_lock(&mutex);
         for (int i = 0; i < num_clients; i++) {
             printf("Server: check stateVector %d\n", i);
-            pthread_mutex_lock(&mutex);
             struct State curr_state = state_vector[i];
-            //curr_state.seqNum++;
+
             if (curr_state.ipv4.s_addr == rcv_state->ipv4.s_addr && curr_state.seqNum < rcv_state->seqNum) {
                 printf("Server: set new data\n");
-                //RequestNewData(rcv_state, curr_state.seqNum);
                 state_vector[i] = *rcv_state;
-                pthread_mutex_unlock(&mutex);
                 break;
             }
-            pthread_mutex_unlock(&mutex);
+            else if(curr_state.seqNum < rcv_state->seqNum){
+                printf("Request new data.");
+                //RequestNewData(rcv_state, curr_state.seqNum);
+            }
         }
+        pthread_mutex_unlock(&mutex);
     }
     // NOT REACHED
 }
 
-void print_struct_bytes(void *ptr, size_t size) {
+// Used for debugging purposes.
+void printStructBytes(void *ptr, size_t size) {
     uint8_t *bytes = (uint8_t *)ptr;
 
     for (size_t i = 0; i < size; i++) {
@@ -249,17 +360,9 @@ void *clientThread() {
     addrCriteria.ai_socktype = SOCK_DGRAM; // Only datagram sockets
     addrCriteria.ai_protocol = IPPROTO_UDP; // Only UDP protocol
 
-    // Get address(es)
-    char str[20];
-    sprintf(str, "%d", state_vector[0].port);
-    struct addrinfo *servAddr; // List of server addresses
-    int rtnVal = getaddrinfo(server_ip, str, &addrCriteria, &servAddr);
-    if (rtnVal != 0)
-        DieWithUserMessage("getaddrinfo() failed", gai_strerror(rtnVal));
-
     // Create a datagram/UDP socket
-    int sock = socket(servAddr->ai_family, servAddr->ai_socktype,
-    servAddr->ai_protocol); // Socket descriptor for client
+    int sock = socket(addrCriteria.ai_family, addrCriteria.ai_socktype,
+    addrCriteria.ai_protocol); // Socket descriptor for client
     if (sock < 0)
         DieWithSystemMessage("socket() failed");
     
@@ -267,21 +370,35 @@ void *clientThread() {
     struct AES_ctx ctx;
     AES_init_ctx_iv(&ctx, key, iv);
 
-    while(true){
-        struct State curr_state;
+    int current = 0;
+    while(true){ // Loop through clients.
 
-        struct State *local = (struct State *)malloc(sizeof(struct State));
-        if (local == NULL){
+        // Get address(es)
+        char curr_ip[20];
+        char curr_port[20];
+        sprintf(curr_port, "%d", state_vector[current].port);
+        //sprintf(curr_ip, "%d", state_vector[current].ipv4.s_addr);
+        inet_ntop(AF_INET, &state_vector[current].ipv4, curr_ip, 20);
+        struct addrinfo *serverAddr; // List of server addresses
+        int rtnVal = getaddrinfo(curr_ip, curr_port, &addrCriteria, &serverAddr);
+        if (rtnVal != 0)
+            DieWithUserMessage("getaddrinfo() failed", gai_strerror(rtnVal));
+
+        // Copy local state.
+        struct State *state_buf = (struct State *) malloc(sizeof(struct State));
+        if (state_buf == NULL){
             DieWithSystemMessage("malloc() failed");
         }
-        memcpy(local, local_state, sizeof(struct State));
+        pthread_mutex_lock(&local_mutex);
+        memcpy(state_buf, local_state, sizeof(struct State));
+        pthread_mutex_unlock(&local_mutex);
 
         // Encrypt
-        AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)local, sizeof(struct State));
+        AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)state_buf, sizeof(struct State));
 
-        // Send to the server
-        ssize_t numBytes = sendto(sock, local, sizeof(struct State), 0,
-        servAddr->ai_addr, servAddr->ai_addrlen);
+        // Send local state.
+        ssize_t numBytes = sendto(sock, &state_buf, sizeof(struct State), 0,
+        serverAddr->ai_addr, serverAddr->ai_addrlen);
         if (numBytes < 0)
             DieWithSystemMessage("sendto() failed");
         else if (numBytes != sizeof(struct State))
@@ -289,136 +406,32 @@ void *clientThread() {
         
         //local_state->seqNum++;
         
+        // Send state vector states.
+        struct State curr_state;
+        memset(state_buf, 0, sizeof(struct State)); // Reset memory.
+        pthread_mutex_lock(&mutex);
         for (int i = 0; i < num_clients; i++){
-            pthread_mutex_lock(&mutex);
             state_vector[i].seqNum++; // FOR TESTING
             curr_state = state_vector[i];
             if (curr_state.isValid){
-                local = &curr_state;
+                state_buf = &curr_state;
                 // Encrypt
-                AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)local, sizeof(struct State));
+                AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)state_buf, sizeof(struct State));
                 printf("Client: sending state %d -- %s:%d.\n", i, inet_ntoa(state_vector[i].ipv4), state_vector[i].port);
-                ssize_t numBytes = sendto(sock, local, sizeof(struct State), 0, servAddr->ai_addr, servAddr->ai_addrlen);
+                ssize_t numBytes = sendto(sock, state_buf, sizeof(struct State), 0, serverAddr->ai_addr, serverAddr->ai_addrlen);
                 
                 if (numBytes < 0)
                     DieWithSystemMessage("sendto() failed");
                 else if (numBytes != sizeof(struct State))
                     DieWithUserMessage("sendto() error", "sent unexpected number of bytes");
             }
-            pthread_mutex_unlock(&mutex);
         }
+        pthread_mutex_unlock(&mutex);
+        current = (current + 1) % num_clients; // Cycle to the next client.
+        freeaddrinfo(serverAddr);
         sleep(1);
     }
-    freeaddrinfo(servAddr);
 }
-
-
-cJSON *stateToJson(struct State *s){
-    cJSON *json = cJSON_CreateObject();
-
-    cJSON_AddBoolToObject(json, "is_valid", s->isValid);
-    char ip[20];
-    inet_ntop(AF_INET, &s->ipv4, ip, strlen(ip));
-    cJSON_AddStringToObject(json, "ip", ip);
-    cJSON_AddNumberToObject(json, "port", s->port);
-    cJSON_AddNumberToObject(json, "seq_num", s->seqNum);
-    cJSON_AddNumberToObject(json, "timestamp", s->timestamp);
-    cJSON_AddNumberToObject(json, "classification", s->classification);
-    cJSON *gps = cJSON_AddArrayToObject(json, "gps");
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->latitude));
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->longitude));
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->altitude));
-    return json;
-}
-
-
-int jsonToState(char *json, struct State *s){
-    cJSON *parse = cJSON_Parse(json);
-    if (!parse){
-        return 1;
-    }
-
-    cJSON *is_valid = cJSON_GetObjectItem(parse, "ip");
-    cJSON *ip = cJSON_GetObjectItem(parse, "ip");
-    cJSON *port = cJSON_GetObjectItem(parse, "ip");
-    cJSON *seq_num = cJSON_GetObjectItem(parse, "ip");
-    cJSON *timestamp = cJSON_GetObjectItem(parse, "ip");
-    cJSON *classification = cJSON_GetObjectItem(parse, "ip");
-    cJSON *gps = cJSON_GetObjectItem(parse, "ip");
-
-    s->gpsState->latitude = cJSON_GetArrayItem(gps, 0)->valuedouble;
-    s->gpsState->longitude = cJSON_GetArrayItem(gps, 1)->valuedouble;
-    s->gpsState->altitude = cJSON_GetArrayItem(gps, 2)->valuedouble;
-
-    s->isValid = is_valid->valueint;
-    inet_pton(AF_INET, ip->valuestring, &s->ipv4);
-    s->port = port->valueint;
-    s->seqNum = seq_num->valueint;
-    s->timestamp = timestamp->valueint;
-    s->classification = classification->valueint;
-
-    cJSON_Delete(parse);
-    return 0;
-}
-
-
-/*
-void *clientThread() {
-    printf("Client thread started.\n");
-    struct sockaddr_storage destStorage;
-    memset(&destStorage, 0, sizeof(destStorage));
-
-    // Get address(es)
-    size_t addrSize = 0;
-    struct sockaddr_in *destAddr4 = (struct sockaddr_in *) &destStorage;
-    destAddr4->sin_family = AF_INET;
-    destAddr4->sin_port = (in_port_t) atoi(server_port);
-    destAddr4->sin_addr.s_addr = inet_addr("127.0.0.1");
-    //destAddr4->sin_addr.s_addr = INADDR_BROADCAST;
-    addrSize = sizeof(struct sockaddr_in);
-
-    struct sockaddr *destAddress = (struct sockaddr *) &destStorage;
-    // Create a datagram/UDP socket
-    int sock = socket(destAddress->sa_family, SOCK_DGRAM, IPPROTO_UDP);
-    if (sock < 0)
-        DieWithSystemMessage("socket() failed");
-
-    // Set socket to allow broadcast
-    int broadcastPerm = 1;
-    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcastPerm, sizeof(broadcastPerm)) < 0)
-        DieWithSystemMessage("setsockopt() failed");
-
-    while (true) {
-        struct State curr_state;// = (struct State*)malloc(sizeof(struct State));
-        //if (curr_state == NULL) {
-        //    DieWithSystemMessage("malloc memory allocation failed.");
-        //}
-        // Broadcast local state
-        ssize_t numBytes = sendto(sock, local_state, sizeof(struct State), 0, destAddress, addrSize);
-        if (numBytes < 0)
-            DieWithSystemMessage("sendto() failed");
-        else if (numBytes != sizeof(struct State))
-            DieWithUserMessage("sendto() error", "sent unexpected number of bytes");
-
-        for (int i = 0; i < num_clients; i++){
-            state_vector[i].seqNum++; // FOR TESTING
-            curr_state = state_vector[i];
-            if (curr_state.isValid || true){
-                printf("Sending state %d -- %s:%d.", i, inet_ntoa(state_vector[i].ipv4), state_vector[i].port);
-                ssize_t numBytes = sendto(sock, &curr_state, sizeof(struct State), 0, destAddress, addrSize);
-                if (numBytes < 0)
-                    DieWithSystemMessage("sendto() failed");
-                else if (numBytes != sizeof(struct State))
-                    DieWithUserMessage("sendto() error", "sent unexpected number of bytes");
-            }
-        }
-        sleep(1);
-    }
-    close(sock);
-    exit(0);
-}
-*/
-
 
 void PrintSocketAddress(const struct sockaddr *address, FILE *stream) {
     // Test for address and stream
@@ -450,64 +463,4 @@ void PrintSocketAddress(const struct sockaddr *address, FILE *stream) {
     if (port != 0) // Zero not valid in any socket addr
     fprintf(stream, "-%u", port);
     }
-}
-
-
-
-// Generates a random state (simulates local state vector update).
-int GenerateRandomState(struct State *state)
-{
-
-    static uint64_t sequence = 0;
-    static bool     initialized = false;
-
-    if (!initialized) {
-        srand((unsigned int)time(NULL) ^ (unsigned int)clock());
-        initialized = true;
-    }
-
-    if (!state || !state->gpsState) {
-        return -1;
-    }
-
-    // Sequence number (monotonically increasing)
-    state->seqNum = ++sequence;
-
-    // Realistic-ish timestamp
-    state->timestamp = time(NULL);
-
-    // Random but plausible classification (0–4 for example)
-    state->classification = (uint8_t)(rand() % 7);
-
-    // Random validity (70% chance valid)
-    state->isValid = (rand() % 10) < 7;
-
-    // Fake IPv4 address (mostly in 10.0.0.0/8 private range + some public-looking)
-    uint32_t ip_pattern[] = {
-        0x0A000001,     // 10.0.0.1
-        0x0A14AB01,     // 10.20.171.1
-        0xAC100001,     // 172.16.0.1
-        0xC0A80101,     // 192.168.1.1
-        0x08080808,     // 8.8.8.8 (public DNS)
-        0x01010101,     // 1.1.1.1 (Cloudflare)
-        0x2F000001      // 47.0.0.1
-    };
-    state->ipv4.s_addr = ip_pattern[rand() % (sizeof(ip_pattern)/sizeof(ip_pattern[0]))];
-
-    // Random port (mostly ephemeral range)
-    state->port = 1024 + (rand() % (65535 - 1024 + 1));
-
-    // Realistic-ish GPS coordinates
-    struct GPS *gps = state->gpsState;
-
-    // Latitude: -90 to +90
-    gps->latitude  = -90.0f + (float)rand() / RAND_MAX * 180.0f;
-
-    // Longitude: -180 to +180
-    gps->longitude = -180.0f + (float)rand() / RAND_MAX * 360.0f;
-
-    // Altitude: sea level to ~12 km (aircraft), sometimes negative (test)
-    gps->altitude  = -500.0f + (float)rand() / RAND_MAX * 13000.0f;
-
-    return 0;
 }
