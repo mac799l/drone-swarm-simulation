@@ -58,12 +58,13 @@ import subprocess
 import os
 
 
-# Share states globally for ease of access in threads.
-# state_vector[0] is the local state.
+# Stores the local and network state objects.
 state_vector = []
 
-# Detected classes for use by a YOLO model trained on the MEDIC disaster dataset.
-# Can be updated to match your specific model.
+'''
+Enumerator of detectable classes for use by a model trained on the MEDIC disaster dataset.
+Can be updated to match your specific model.
+'''
 class Disaster(Enum):
     EARTHQUAKE = 0
     FIRE = 1
@@ -73,7 +74,9 @@ class Disaster(Enum):
     NOT_DISASTER = 5
     OTHER_DISASTER = 6
 
-# Define state class for creating state objects.
+'''
+Defines the state class for creating local and network states.
+'''
 class state:
     def __init__(self):
         self._data = {}
@@ -91,6 +94,9 @@ class state:
         with self._lock:
             del self._data[key]
 
+'''
+Create a new state object with default values.
+'''
 def initializeState():
     new_state = state()
     new_state.set("is_valid", 0)
@@ -101,7 +107,9 @@ def initializeState():
     return new_state
     
 
-# Connect to the drone.
+'''
+Connect to a drone instance (i.e. SITL forwarded connection, or physical connection).
+'''
 def connectCopter(CONNECTION):
 
     print(f"Connecting to: {CONNECTION}")
@@ -110,19 +118,28 @@ def connectCopter(CONNECTION):
     return copter
 
 
-# Connected to camera stream.
+'''
+Connect to the Airsim environment using the Airsim API.
+Used for drone camera access.
+'''
 def connectAirsim(AIRSIM_IP):
 
     client = airsim.MultirotorClient(ip=AIRSIM_IP)
     client.confirmConnection()
     client.enableApiControl(True)
-
     return client
 
-# args=(child_cls, cls_enum, copter, args.airsim_ip, args.path, consensus, copter_name,)
-# Perform classification on the camera stream.
-def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME):
+'''
+Read camera inputs from an Airsim simulation and 
+1. display images without classification.
+2. display images with classification
+    a. with network consensus
+    b. without network consensus.
+'''
+def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe):
 
+    if not NAME or not AIRSIM_IP:
+        print("No name provided")
     airsim_client = connectAirsim(AIRSIM_IP)
     print("Camera connected.")
     print(f"USE_CONSENSUS: {USE_CONSENSUS}")
@@ -138,6 +155,7 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME):
             # Press 'q' from the camera window to stop classification.
             if cv.waitKey(1) == ord('q'):
                 break
+    
     # 2. Display images with classification.
     else:
         DETECTION_THRESHOLD = 0.5 # 50% confidence threshold.
@@ -161,24 +179,34 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME):
                 probabilites = results[0].probs
                 top_class = probabilites.top1
                 confidence = probabilites.top1conf
-                location = copter.getLocationGlobal()
+                location = copter.getLocationGlobal() #TODO: ACCESS FROM STATE VECTOR
                 
                 # Update local state. Default to NOT_DISASTER.
                 if confidence >= DETECTION_THRESHOLD:
-                    state_vector[0].set("classification", top_class)
+                    #print(f"4 Sending new CLS to main process: {top_class}.")
+                    pipe.send(top_class)
+                    #state_vector[0].set("classification", top_class)
                 else:
-                    state_vector[0].set("classification", Disaster.NOT_DISASTER.value)
+                    #print("4 Sending NOT_DISASTER CLS to main process.")
+                    pipe.send(Disaster.NOT_DISASTER.value)
+                    #state_vector[0].set("classification", Disaster.NOT_DISASTER.value)
+                #print("4 Receiving state_vector data from main process.")
+                states = pipe.recv()
+                #print(f"4 Data received: {states}.")
+                # If detected NOT_DISASTER, skip consensus.
+                if top_class == 5:
+                    continue
 
                 if confidence > DETECTION_THRESHOLD:
                     # Check consensus.
                     count = 1
-                    for i in range(len(state_vector) - 1):
-                        cls = state_vector[i+1].get("classification")
-                        if top_class == cls and enum_name != 'NOT_DISASTER':
+                    for i in range(len(states) - 1):
+                        cls = states[i+1]
+                        if top_class == cls:
                             count += 1
 
                     # TODO: determine consensus only on valid states, i.e. timeouts.
-                    if count >= (len(state_vector) // 2):
+                    if count > (len(states) // 2):
                         print("Detected class:", Disaster(top_class).name,
                             " -- Confidence:",'{0:.2f}'.format(confidence.item()), 
                             " -- GPS:", location)
@@ -210,14 +238,16 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME):
                 top_class = probabilites.top1
                 confidence = probabilites.top1conf
                 enum_name = Disaster(top_class).name
-                location = copter.getLocationGlobal()
+                location = copter.getLocationGlobal() #TODO: ACCESS FROM STATE VECTOR
 
                 # Update local state. Default to NOT_DISASTER.
                 if confidence >= DETECTION_THRESHOLD:
-                    state_vector[0].set("classification", top_class)
+                    pipe.send(top_class)
+                    #state_vector[0].set("classification", top_class)
                 else:
-                    state_vector[0].set("classification", Disaster.NOT_DISASTER.value)
-
+                    pipe.send(Disaster.NOT_DISASTER.value)
+                    #state_vector[0].set("classification", Disaster.NOT_DISASTER.value)
+                states = pipe.recv()
                 if confidence > DETECTION_THRESHOLD:
                     print("Detected class:", enum_name ,
                           " -- Confidence:",'{0:.2f}'.format(confidence.item()), 
@@ -239,7 +269,9 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME):
     return
 
 
-# Controls the drone's flight path.
+''' 
+Defines the drone's flight path and login.
+'''
 def droneControl(copter):
     
     print(f"Copter: {copter}")
@@ -251,10 +283,8 @@ def droneControl(copter):
     copter.setSpeed(AIRSPEED,GROUNDSPEED)
 
     time.sleep(1)
-    copter.takeoff(15)
-    time.sleep(1)
-    copter.land()
- 
+    copter.takeoff(25)
+
     time.sleep(1)
     print("Altitude: ", copter.getAltGlobal(), "meters.")
 
@@ -268,6 +298,9 @@ def droneControl(copter):
     copter.land()
     return
 
+'''
+Defines CLI arguments and options.
+'''
 def argParser():
 
     parser = argparse.ArgumentParser(description='Airsim drone script with optional networking features.')
@@ -339,53 +372,122 @@ def argParser():
     
     return args
 
-def jsonToState(data):
-    msg_json = json.loads(data.decode())
-    ip = msg_json.get("ip")
-    cls = msg_json.get("cls")
-    gps = msg_json.get("gps")
-    return 0
+'''
+Convert a serialized JSON object to a dictionary.
+'''
+# def jsonToState(data):
+#     msg_json = json.loads(data.decode())
+#     ip = msg_json.get("ip")
+#     cls = msg_json.get("cls")
+#     gps = msg_json.get("gps")
+#     return 0
 
+'''
+Convert a state dictionary object to serialized JSON for transmission.
+'''
 def stateToJSON(state):
-    msg_json = {"ip": state.ip, "cls": state.cls, "gps": state.gps}
+    msg_json = {"classification": state.get("classification"),
+                 "gps": state.get("gps")}
+    #print(f"5. msg_json: {msg_json}")
     msg_json = json.dumps(msg_json).encode() + b'\n'
     return msg_json
 
-async def listenServerPipe(pipe):
-    while True:
-        msg = pipe.readline()
-        msg = msg.decode().strip()
-        id = msg["id"] + 1
-        state_vector[id].set("is_valid", msg["is_valid"])
-        state_vector[id].set("classification", msg["classification"])
-        state_vector[id].set("gps", msg["gps"])
+'''
+Monitor pipe for updated states from the network process.
+'''
+async def listenServerPipe(fd):
+    loop = asyncio.get_running_loop()
+    
+    with os.fdopen(fd, 'rb') as pipe:
+        reader = asyncio.StreamReader()
+        protocol = asyncio.StreamReaderProtocol(reader)
+        await loop.connect_read_pipe(lambda: protocol, pipe)
+
+        while True:
+            raw = await reader.readline()
+            if not raw:
+                break
+
+            try:
+                msg = json.loads(raw.decode().strip())
+            except json.JSONDecodeError:
+                continue
+
+            node_id = msg["id"] + 1
+
+            #print(f"Reading state update for node {node_id}")
+            #print(f"Updating state vector from network process: {msg}.")
+
+            state_vector[node_id].set("is_valid", msg["is_valid"])
+            state_vector[node_id].set("classification", msg["classification"])
+            state_vector[node_id].set("gps", msg["gps"])
 
 
-async def sendServerPipe(pipe):
+
+'''
+Monitor the classification process pipe for new data.
+Send current state vector back for consensus.
+'''
+async def clsPipe(mp_pipe):
+    # Create event.
+    data_available = asyncio.Event()
+    asyncio.get_event_loop().add_reader(mp_pipe, data_available.set)
+    
+    # Monitor pipe.
     while True:
+        while not mp_pipe.poll():
+            await data_available.wait()
+            data_available.clear()
+        
+        # Recieve new classification enum.
+        msg = mp_pipe.recv()
+        #print(f"2 Received data from CLS process: {msg}.")
+        state_vector[0].set("classification", msg)
+        states = []
+        for i in range(len(state_vector) - 1):
+            states.append(state_vector[i + 1].get("classification"))
+        #print(f"2 Sending data to CLS process {states}.")
+        mp_pipe.send(states)
+
+'''
+Send local state to the network process.
+'''
+async def sendServerPipe(os_pipe):
+    while True:
+        
         for _ in range(len(state_vector)):
-            msg = json.dumps(state_vector[0]).encode() + b'\n'
-            pipe.send(msg)
-        asyncio.sleep(1) # TODO: use signals.
+            #print("3 Sending data to network process:")
+            msg = stateToJSON(state_vector[0])
+            #msg = json.dumps(msg).encode() + b'\n'
+            os.write(os_pipe, msg)
+        await asyncio.sleep(1) # TODO: use signals.
 
+
+async def ipc(r_vector, w_local, parent_pipe):
+    results = await asyncio.gather(
+        listenServerPipe(r_vector),
+        sendServerPipe(w_local),
+        clsPipe(parent_pipe)
+    )
+    return results
+
+'''
+Main function.
+'''
 def main():
-
     args = argParser()
-    copter_connection = connectCopter(args.connection)
-    copter = drone(copter_connection) # Drone class object.
-    print("Copter connected.")
 
     clients = []
     if args.clients_file:
         with open(args.clients_file, 'r') as file:
-            line = file.readline
+            line = file.readline()
             ip, port = line.split(':')
             clients.append([ip, port])
     elif args.clients:
         for client in args.clients:     
             ip, port = client.split(':')
             clients.append([ip, port])
-        print(clients)
+        print(f"Clients: {clients}")
 
     if args.server and clients:
         print("Networking enabled.")
@@ -413,16 +515,23 @@ def main():
         model_path = None
 
     # Initialize state vector.
-    for _ in range(num_clients + 1):
+    num_clients = len(clients)
+    for _ in range(num_clients + 1): # Always has a local state.
         state_vector.append(initializeState())
 
-    # Handle image gathering and classification.
+    # Connect to drone instance.
+    copter_connection = connectCopter(args.connection)
+    copter = drone(copter_connection, state_vector, args.avoidance) # Drone class object.
+    print("Copter connected.")
+
+    # Define process for handling image gathering and classification.
+    parent_pipe, child_pipe = Pipe()
     cls_process = Process(
         target=classificationYOLO,
-        args=(copter, args.airsim_ip, model_path, consensus, copter_name,)
+        args=(copter, args.airsim_ip, model_path, consensus, copter_name, child_pipe,)
     )
     
-    # Direct drone path.
+    # Define thread for drone movement commands (pre-determined currently).
     ctrl_thread = Thread(target=droneControl, args=(copter,))
 
     processes = [cls_process, ctrl_thread]
@@ -431,7 +540,6 @@ def main():
         print(f"Starting {process} process!")
         process.start()
 
-    num_clients = len(clients)
     # Handle server/client functionality.
     udp_server = None
 
@@ -439,22 +547,32 @@ def main():
         r_local, w_local = os.pipe()
         r_vector, w_vector = os.pipe()
         udp_server = subprocess.Popen(["./udp_server", 
-                       args.server[0], 
-                       r_local,
-                       w_vector,
-                       num_clients,
-                       *clients],
+                       str(args.server[0]), 
+                       str(r_local),
+                       str(w_vector),
+                       str(num_clients),
+                       *map(str, args.clients)],
                        pass_fds=(r_local, w_vector))
         
-        subprocess.run(udp_server)
         # Send and recieve data from server process pipes.
-        asyncio.gather(
-            listenServerPipe(r_vector),
-            sendServerPipe(w_local)
+        asyncio.run(
+            ipc(r_vector, w_local, parent_pipe),
+        )
+    else:
+        asyncio.run(
+            clsPipe(parent_pipe)
         )
 
     for process in processes:
         process.join()
+
+    udp_server.terminate()
+
+    try:
+        udp_server.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        udp_server.kill()
+        udp_server.wait()
 
     time.sleep(1)
     print("Finished script. Connections closed.")

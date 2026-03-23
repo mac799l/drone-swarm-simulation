@@ -61,10 +61,9 @@ int main(int argc, char *argv[]){
         printf("argv[%d]: %s\n", i, argv[i]);
     }
     /* ------------------ Setup ------------------ */
-    const char DELIM = ':';
     num_clients = atoi(argv[4]);
 
-    server_ip = strtok(argv[1], &DELIM);
+    server_ip = strtok(argv[1], ":");
     server_port = strtok(NULL, "\0");
 
     int *local_pipe_r = malloc(sizeof(int));
@@ -86,7 +85,7 @@ int main(int argc, char *argv[]){
 
     for (int i = 5; i < 5 + num_clients; i++){
         ipPorts[i-5] = argv[i];
-        printf("ipPorts[%d]: %s \n", i-3, ipPorts[i-5]);
+        printf("ipPorts[%d]: %s \n", i-5, ipPorts[i-5]);
     }
 
     char *ips[num_clients];
@@ -94,8 +93,8 @@ int main(int argc, char *argv[]){
 
     // Split up client IP:PORTS.
     for (int i = 0; i < num_clients; i++) {
-        ips[i] = strtok(ipPorts[i], &DELIM);
-        ports[i] = strtok(NULL, "\n");
+        ips[i] = strtok(ipPorts[i], ":");
+        ports[i] = strtok(NULL,":");
         printf("ips[%d]: %s. ports[%d] %s \n", i, ips[i], i, ports[i]);
     }
 
@@ -109,16 +108,18 @@ int main(int argc, char *argv[]){
         
         // Allocate a new state.
         struct State state;
-        struct GPS *gps = (struct GPS*)malloc(sizeof(struct GPS));
-        gps->longitude = 0.0;
-        gps->latitude = 0.0;
-        gps->altitude = 0.0;
+        //struct GPS *gps = (struct GPS*)malloc(sizeof(struct GPS));
+        // gps->longitude = 0.0;
+        // gps->latitude = 0.0;
+        // gps->altitude = 0.0;
         time_t now = time(NULL);
         
         // Load default state into state vector.
         inet_pton(AF_INET, ips[i], &state.ipv4);
         state.port = atoi(ports[i]);
-        state.gpsState = gps;
+        state.gpsState.altitude = 0.0;
+        state.gpsState.latitude = 0.0;
+        state.gpsState.longitude = 0.0;
         state.seqNum = 0;
         state.timestamp = now;//gmtime(now);
         state.classification = NOT_DISASTER;
@@ -131,18 +132,21 @@ int main(int argc, char *argv[]){
     // Allocate local state.
     struct State* local = (struct State*)malloc(sizeof(struct State));
     if (local == NULL) {
-        DieWithSystemMessage("malloc memory allocation failed.");
+        DieWithSystemMessage("malloc memory allocation failed.\n");
     }
-    struct GPS *gps = (struct GPS*)malloc(sizeof(struct GPS));
-    gps->longitude = 0.0;
-    gps->latitude = 0.0;
-    gps->altitude = 0.0;
+    //struct GPS *gps = (struct GPS*)malloc(sizeof(struct GPS));
+    // gps->longitude = 0.0;
+    // gps->latitude = 0.0;
+    // gps->altitude = 0.0;
     time_t now = time(NULL);
     
     // Load default state.
     inet_pton(AF_INET, server_ip, &local->ipv4);
     local->port = atoi(server_port);
-    local->gpsState = gps;
+    //local->gpsState = gps;
+    local->gpsState.altitude = 0.0;
+    local->gpsState.longitude = 0.0;
+    local->gpsState.latitude = 0.0;
     local->seqNum = 0;
     local->timestamp = now;//gmtime(now);
     local->classification = NOT_DISASTER;
@@ -174,15 +178,21 @@ int main(int argc, char *argv[]){
 // Monitor pipe for data from Python program.
 void *localPipeThread(void *arg){
     FILE *fp = fdopen(*(int *)arg, "r");
-    struct State *s = (struct State *) malloc(sizeof(struct State));    
+    setvbuf(fp, NULL, _IOLBF, 0);
+    struct State *s = (struct State *) malloc(sizeof(struct State));
+    //struct GPS *gps = malloc(sizeof(struct GPS));
+    //s->gpsState = gps;
     while(true){
-        char buf[100];
+        char buf[512];
         if (fgets(buf, sizeof(buf), fp) == NULL){
-            fflush(fp);
+            //printf("C: fgets failed.\n");
             continue;
         }
+        //printf("C: fgets worked.\n");
 
         memset(s, 0, sizeof(struct State));
+        //memset(gps, 0, sizeof(struct GPS));
+        //s->gpsState = gps;
         // Convert JSON message to state elements (GPS, Classification, etc)
         int i = jsonToState(buf, s);
         if (i == 1){
@@ -190,8 +200,12 @@ void *localPipeThread(void *arg){
             continue;
         }
         // Update local state.
+        //printf("C: local pipe: %d, [%f, %f, %f]\n", s->classification, s->gpsState.latitude, 
+        //    s->gpsState.longitude, s->gpsState.altitude);
         pthread_mutex_lock(&local_mutex);
-        memcpy(local_state->gpsState, s->gpsState, sizeof(struct GPS));
+        local_state->gpsState.altitude = s->gpsState.altitude;
+        local_state->gpsState.latitude = s->gpsState.latitude;
+        local_state->gpsState.longitude = s->gpsState.longitude;
         memcpy(&local_state->classification, &s->classification, sizeof(u_int8_t));
         local_state->timestamp = time(NULL);
         local_state->seqNum += 1;
@@ -202,14 +216,18 @@ void *localPipeThread(void *arg){
 // Send new state vector data to Python program.
 void *vectorPipeThread(void *arg){
     FILE *fp = fdopen(*(int *)arg, "w");
+    setvbuf(fp, NULL, _IOLBF, 0);
     while(true){
         pthread_mutex_lock(&mutex);
         // Send each state through pipe as a JSON object.
         for(int i = 0; i < num_clients; i++){
+            //printf("C: Sending state to Python.\n");
             cJSON *object = stateToJson(i, &state_vector[i]);
             char *json_str = cJSON_PrintUnformatted(object);
             fprintf(fp, "%s\n", json_str);
             fflush(fp);
+            cJSON_Delete(object);
+            free(json_str);
         }
         pthread_mutex_unlock(&mutex);
         sleep(1); 
@@ -229,9 +247,10 @@ cJSON *stateToJson(int id, struct State *s){
     //cJSON_AddNumberToObject(json, "timestamp", s->timestamp);
     cJSON_AddNumberToObject(json, "classification", s->classification);
     cJSON *gps = cJSON_AddArrayToObject(json, "gps");
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->latitude));
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->longitude));
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState->altitude));
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.latitude));
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.longitude));
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.altitude));
+    
     return json;
 }
 
@@ -250,9 +269,9 @@ int jsonToState(char *json, struct State *s){
     cJSON *classification = cJSON_GetObjectItem(parse, "classification");
     cJSON *gps = cJSON_GetObjectItem(parse, "gps");
 
-    s->gpsState->latitude = cJSON_GetArrayItem(gps, 0)->valuedouble;
-    s->gpsState->longitude = cJSON_GetArrayItem(gps, 1)->valuedouble;
-    s->gpsState->altitude = cJSON_GetArrayItem(gps, 2)->valuedouble;
+    s->gpsState.latitude = cJSON_GetArrayItem(gps, 0)->valuedouble;
+    s->gpsState.longitude = cJSON_GetArrayItem(gps, 1)->valuedouble;
+    s->gpsState.altitude = cJSON_GetArrayItem(gps, 2)->valuedouble;
 
     //s->isValid = is_valid->valueint;
     //inet_pton(AF_INET, ip->valuestring, &s->ipv4);
@@ -296,7 +315,6 @@ void *serverThread() {
 
     // Prepare for encryption/decryption.
     struct AES_ctx ctx;
-    AES_init_ctx_iv(&ctx, key, iv);
 
     //int current = 0;
     for (;;) { // Run forever
@@ -317,6 +335,7 @@ void *serverThread() {
         //printf('\n');
 
         //Decrypt message
+        AES_init_ctx_iv(&ctx, key, iv);
         AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)rcv_state, numBytesRcvd);
 
         pthread_mutex_lock(&mutex);
@@ -330,7 +349,7 @@ void *serverThread() {
                 break;
             }
             else if(curr_state.seqNum < rcv_state->seqNum){
-                printf("Request new data.");
+                printf("Request new data.\n");
                 //RequestNewData(rcv_state, curr_state.seqNum);
             }
         }
@@ -354,7 +373,7 @@ void *clientThread() {
     // Tell the system what kind(s) of address info we want
     struct addrinfo addrCriteria; // Criteria for address match
     memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure
-    addrCriteria.ai_family = AF_UNSPEC; // Any address family
+    addrCriteria.ai_family = AF_INET; // Any address family
 
     // For the following fields, a zero value means "don't care"
     addrCriteria.ai_socktype = SOCK_DGRAM; // Only datagram sockets
@@ -366,38 +385,39 @@ void *clientThread() {
     if (sock < 0)
         DieWithSystemMessage("socket() failed");
     
-    // Prepare for encryption.
-    struct AES_ctx ctx;
-    AES_init_ctx_iv(&ctx, key, iv);
-
     int current = 0;
+    struct State *state_buf = (struct State *) malloc(sizeof(struct State));
+    if (state_buf == NULL){
+        DieWithSystemMessage("malloc() failed");
+    }
+    struct AES_ctx ctx;
     while(true){ // Loop through clients.
 
         // Get address(es)
-        char curr_ip[20];
+        char curr_ip[INET_ADDRSTRLEN];
         char curr_port[20];
+
+        pthread_mutex_lock(&mutex);
         sprintf(curr_port, "%d", state_vector[current].port);
-        //sprintf(curr_ip, "%d", state_vector[current].ipv4.s_addr);
-        inet_ntop(AF_INET, &state_vector[current].ipv4, curr_ip, 20);
+        inet_ntop(AF_INET, &state_vector[current].ipv4, curr_ip, sizeof(curr_ip));
+        pthread_mutex_unlock(&mutex);
+
         struct addrinfo *serverAddr; // List of server addresses
         int rtnVal = getaddrinfo(curr_ip, curr_port, &addrCriteria, &serverAddr);
         if (rtnVal != 0)
             DieWithUserMessage("getaddrinfo() failed", gai_strerror(rtnVal));
 
         // Copy local state.
-        struct State *state_buf = (struct State *) malloc(sizeof(struct State));
-        if (state_buf == NULL){
-            DieWithSystemMessage("malloc() failed");
-        }
         pthread_mutex_lock(&local_mutex);
         memcpy(state_buf, local_state, sizeof(struct State));
         pthread_mutex_unlock(&local_mutex);
 
         // Encrypt
+        AES_init_ctx_iv(&ctx, key, iv);
         AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)state_buf, sizeof(struct State));
 
         // Send local state.
-        ssize_t numBytes = sendto(sock, &state_buf, sizeof(struct State), 0,
+        ssize_t numBytes = sendto(sock, state_buf, sizeof(struct State), 0,
         serverAddr->ai_addr, serverAddr->ai_addrlen);
         if (numBytes < 0)
             DieWithSystemMessage("sendto() failed");
@@ -406,18 +426,16 @@ void *clientThread() {
         
         //local_state->seqNum++;
         
-        // Send state vector states.
-        struct State curr_state;
-        memset(state_buf, 0, sizeof(struct State)); // Reset memory.
+        // Send state vector.
         pthread_mutex_lock(&mutex);
         for (int i = 0; i < num_clients; i++){
-            state_vector[i].seqNum++; // FOR TESTING
-            curr_state = state_vector[i];
-            if (curr_state.isValid){
-                state_buf = &curr_state;
+            memcpy(state_buf, &state_vector[i], sizeof(struct State));
+
+            if (state_buf->isValid){
                 // Encrypt
+                AES_init_ctx_iv(&ctx, key, iv);
                 AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)state_buf, sizeof(struct State));
-                printf("Client: sending state %d -- %s:%d.\n", i, inet_ntoa(state_vector[i].ipv4), state_vector[i].port);
+                printf("Client: sending state %d -- %s:%s.\n", i, curr_ip, curr_port);
                 ssize_t numBytes = sendto(sock, state_buf, sizeof(struct State), 0, serverAddr->ai_addr, serverAddr->ai_addrlen);
                 
                 if (numBytes < 0)
@@ -459,8 +477,8 @@ void PrintSocketAddress(const struct sockaddr *address, FILE *stream) {
     if (inet_ntop(address->sa_family, numericAddress, addrBuffer, sizeof(addrBuffer)) == NULL)
         fputs("[invalid address]", stream); // Unable to convert
     else {
-    fprintf(stream, "%s", addrBuffer);
+    fprintf(stream, "%s\n", addrBuffer);
     if (port != 0) // Zero not valid in any socket addr
-    fprintf(stream, "-%u", port);
+    fprintf(stream, "-%u\n", port);
     }
 }
