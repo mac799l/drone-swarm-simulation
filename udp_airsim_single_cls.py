@@ -49,10 +49,10 @@ import airsim
 import numpy as np
 #from drone_network import swarm
 import asyncio
-from multiprocessing import Process, Value, Pipe
+from multiprocessing import Process, Pipe
 from threading import Thread, Lock
-from functools import partial
-import socket
+#from functools import partial
+#import socket
 import json
 import subprocess
 import os
@@ -194,10 +194,10 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe)
                 states = pipe.recv()
                 #print(f"4 Data received: {states}.")
                 # If detected NOT_DISASTER, skip consensus.
-                if top_class == 5:
-                    continue
+                # if top_class == 5:
+                #     continue
 
-                if confidence > DETECTION_THRESHOLD:
+                if confidence > DETECTION_THRESHOLD and top_class != Disaster.NOT_DISASTER:
                     # Check consensus.
                     count = 1
                     for i in range(len(states) - 1):
@@ -546,7 +546,7 @@ def main():
     if network_enabled:
         r_local, w_local = os.pipe()
         r_vector, w_vector = os.pipe()
-        udp_server = subprocess.Popen(["./udp_server", 
+        udp_server = subprocess.Popen(["./udp_server_cur", 
                        str(args.server[0]), 
                        str(r_local),
                        str(w_vector),

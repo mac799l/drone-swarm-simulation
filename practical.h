@@ -8,8 +8,7 @@ File Description:
 
 */
 
-#ifndef PRACTICAL_H
-#define PRACTICAL_H
+#pragma once
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -22,10 +21,20 @@ File Description:
 #include <netdb.h>
 #include <stdbool.h>
 #include <time.h>
+#include <sha256.h>
 
 extern int MAXSTRINGLENGTH;
 extern int IPV4_ADDRESS_LEN;
 extern int PORT_LEN;
+
+#define SHA256_HASH_SIZE 32
+
+struct packet {
+    struct State state; // Encrypted state.
+    u_int8_t hmac[SHA256_HASH_SIZE];
+    u_int8_t iv[16]; // Send IV in the clear.
+    u_int8_t type; // Packet type.
+};
 
 struct GPS {
     float latitude;
@@ -48,5 +57,3 @@ void DieWithUserMessage(const char *msg, const char *detail);
 void DieWithSystemMessage(const char *msg);
 
 //void PrintSocketAddress(const struct sockaddr *address, FILE *stream);
-
-#endif

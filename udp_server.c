@@ -42,6 +42,11 @@ enum disasterCls {
     OTHER_DISASTER = 6
 };
 
+enum messageType {
+    UPDATE = 0,
+    REQUEST = 1
+};
+
 struct State *state_vector;
 struct State *local_state;
 int num_clients;
@@ -52,6 +57,7 @@ pthread_mutex_t local_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 uint8_t iv[16]  = { 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff };
 uint8_t key[16] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+uint8_t hmac_key[16] = {0x7e, 0xf7, 0x15, 0xfb, 0xcf, 0xd2, 0x3c, 0x16, 0x2b, 0xf1, 0xf4, 0x88, 0xf5, 0xf3, 0x16, 0x09};
 
 int main(int argc, char *argv[]){
 
@@ -317,15 +323,23 @@ void *serverThread() {
     struct AES_ctx ctx;
 
     //int current = 0;
+    struct packet *message = (struct packet *) malloc(sizeof(struct packet));
+    if (message == NULL){
+        DieWithSystemMessage("malloc() failed");
+    }
+    struct State *rcv_state = (struct State *)malloc(sizeof(struct State));
+    if (rcv_state == NULL){
+        DieWithSystemMessage("malloc() failed");
+    }
+    //struct packet message;
     for (;;) { // Run forever
-        struct State *rcv_state = (struct State *)malloc(sizeof(struct State));
         struct sockaddr_storage clntAddr; // Client address
         // Set Length of client address structure (in-out parameter)
         socklen_t clntAddrLen = sizeof(clntAddr);
 
         //char rcv_buf[sizeof(struct State)];
         // Block until receive message from a client
-        ssize_t numBytesRcvd = recvfrom(sock, rcv_state, sizeof(struct State), 0,
+        ssize_t numBytesRcvd = recvfrom(sock, message, sizeof(struct packet), 0,
             (struct sockaddr *) &clntAddr, &clntAddrLen);
         if (numBytesRcvd < 0)
             DieWithSystemMessage("recvfrom() failed");
@@ -334,26 +348,48 @@ void *serverThread() {
         //PrintSocketAddress((struct sockaddr *) &clntAddr, stdout);
         //printf('\n');
 
-        //Decrypt message
+        // Read state from message.
+        *rcv_state = message->state;
+
+        //Decrypt state.
         AES_init_ctx_iv(&ctx, key, iv);
         AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)rcv_state, numBytesRcvd);
 
+        // Create HMAC.
+        u_int8_t hmac[SHA256_HASH_SIZE];
+        memcpy(hmac, message->hmac, sizeof(struct packet));
+        //u_int8_t hmac[SHA256_HASH_SIZE] = message->hmac;
+        hmac_sha256(hmac_key, sizeof(hmac_key), (u_int8_t *)rcv_state, sizeof(struct State), hmac);
+        
+        if (message->hmac != hmac){
+            printf("HMAC authentication check failed!\n");
+            memset(message, 0, sizeof(struct packet));
+            memset(rcv_state, 0, sizeof(struct State));
+            continue;
+        }
+        // Interpret message.
         pthread_mutex_lock(&mutex);
         for (int i = 0; i < num_clients; i++) {
             printf("Server: check stateVector %d\n", i);
             struct State curr_state = state_vector[i];
-
-            if (curr_state.ipv4.s_addr == rcv_state->ipv4.s_addr && curr_state.seqNum < rcv_state->seqNum) {
-                printf("Server: set new data\n");
-                state_vector[i] = *rcv_state;
-                break;
+            if (message->type == REQUEST){
+                // Send local state in reply.
             }
-            else if(curr_state.seqNum < rcv_state->seqNum){
-                printf("Request new data.\n");
-                //RequestNewData(rcv_state, curr_state.seqNum);
+            else if (message->type == UPDATE){
+                // If the state is newer and the sender's own state, update.
+                if (curr_state.ipv4.s_addr == rcv_state->ipv4.s_addr && curr_state.seqNum < rcv_state->seqNum) {
+                    printf("Server: set new data\n");
+                    state_vector[i] = *rcv_state;
+                }
+                else if(curr_state.seqNum < rcv_state->seqNum){
+                    printf("Request new data.\n");
+                    //RequestNewData(rcv_state, curr_state.seqNum);
+                }
             }
         }
         pthread_mutex_unlock(&mutex);
+        memset(message, 0, sizeof(struct packet));
+        memset(rcv_state, 0, sizeof(struct State));
     }
     // NOT REACHED
 }
@@ -391,6 +427,7 @@ void *clientThread() {
         DieWithSystemMessage("malloc() failed");
     }
     struct AES_ctx ctx;
+    struct packet *message = (struct packet *) malloc(sizeof(struct packet));
     while(true){ // Loop through clients.
 
         // Get address(es)
@@ -412,19 +449,25 @@ void *clientThread() {
         memcpy(state_buf, local_state, sizeof(struct State));
         pthread_mutex_unlock(&local_mutex);
 
-        // Encrypt
+        // Create HMAC of the state and update packet struct.
+        hmac_sha256(*hmac_key, sizeof(hmac_key), (u_int8_t *)state_buf, sizeof(struct State), &message->hmac);
+        //memcpy(&message->state, state_buf, sizeof(struct State));
+        // TODO: add IV.
+        message->state = *state_buf;
+        message->type = UPDATE;
+
+        // Encrypt state and store in packet struct.
         AES_init_ctx_iv(&ctx, key, iv);
         AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)state_buf, sizeof(struct State));
+        message->state = *state_buf;
 
-        // Send local state.
-        ssize_t numBytes = sendto(sock, state_buf, sizeof(struct State), 0,
+        // Send message (containing local state).
+        ssize_t numBytes = sendto(sock, message, sizeof(struct packet), 0,
         serverAddr->ai_addr, serverAddr->ai_addrlen);
         if (numBytes < 0)
             DieWithSystemMessage("sendto() failed");
-        else if (numBytes != sizeof(struct State))
+        else if (numBytes != sizeof(struct packet))
             DieWithUserMessage("sendto() error", "sent unexpected number of bytes");
-        
-        //local_state->seqNum++;
         
         // Send state vector.
         pthread_mutex_lock(&mutex);
@@ -432,21 +475,29 @@ void *clientThread() {
             memcpy(state_buf, &state_vector[i], sizeof(struct State));
 
             if (state_buf->isValid){
-                // Encrypt
+                // Create HMAC of the state and update packet struct.
+                hmac_sha256(*hmac_key, sizeof(hmac_key), (u_int8_t *)state_buf, sizeof(struct State), &message->hmac);
+                //memcpy(&message->state, state_buf, sizeof(struct State));
+                message->state = *state_buf;
+                message->type = UPDATE;
+
+                // Encrypt state
                 AES_init_ctx_iv(&ctx, key, iv);
                 AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)state_buf, sizeof(struct State));
+                message->state = *state_buf;
                 printf("Client: sending state %d -- %s:%s.\n", i, curr_ip, curr_port);
-                ssize_t numBytes = sendto(sock, state_buf, sizeof(struct State), 0, serverAddr->ai_addr, serverAddr->ai_addrlen);
+                ssize_t numBytes = sendto(sock, message, sizeof(struct packet), 0, serverAddr->ai_addr, serverAddr->ai_addrlen);
                 
                 if (numBytes < 0)
                     DieWithSystemMessage("sendto() failed");
-                else if (numBytes != sizeof(struct State))
+                else if (numBytes != sizeof(struct packet))
                     DieWithUserMessage("sendto() error", "sent unexpected number of bytes");
             }
         }
         pthread_mutex_unlock(&mutex);
         current = (current + 1) % num_clients; // Cycle to the next client.
         freeaddrinfo(serverAddr);
+        memset(message, 0, sizeof(struct packet));
         sleep(1);
     }
 }

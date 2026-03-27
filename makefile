@@ -6,32 +6,27 @@ CFLAGS  = -Wall -Wextra -g          # warnings + debug info
 LDFLAGS =                         # add libraries here if needed (e.g. -lpthread)
 
 # Source files
-#CLIENT_SRC  = udp_client.c
 SERVER_SRC  = udp_server.c
 PRACTICAL_SRC  = practical.c
 AES_SRC = aes.c
+HMAC_SRC = sha256.c
 CJSON_SRC = cJSON.c
 
 # Object files
-#CLIENT_OBJ  = $(CLIENT_SRC:.c=.o)
 SERVER_OBJ  = $(SERVER_SRC:.c=.o)
 SHARED_OBJ  = $(PRACTICAL_SRC:.c=.o)
 AES_SRC_OBJ = $(AES_SRC:.c=.o)
+HMAC_SRC_OBJ = $(HMAC_SRC:.c=.o)
 CJSON_SRC_OBJ = $(CJSON_SRC:.c=.o)
 
-# Executables
-#CLIENT_EXE  = udp_client
+# Executable
 SERVER_EXE  = udp_server
 
 # All targets
-all: $(CLIENT_EXE) $(SERVER_EXE)
-
-# Link client executable
-#$(CLIENT_EXE): $(CLIENT_OBJ) $(SHARED_OBJ)
-#	$(CC) $^ -o $@ $(LDFLAGS)
+all: $(SERVER_EXE)
 
 # Link server executable
-$(SERVER_EXE): $(SERVER_OBJ) $(SHARED_OBJ) $(AES_SRC_OBJ) $(CJSON_SRC_OBJ)
+$(SERVER_EXE): $(SERVER_OBJ) $(SHARED_OBJ) $(AES_SRC_OBJ) $(HMAC_SRC_OBJ) $(CJSON_SRC_OBJ)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 # Pattern rule: compile any .c to .o
@@ -41,12 +36,4 @@ $(SERVER_EXE): $(SERVER_OBJ) $(SHARED_OBJ) $(AES_SRC_OBJ) $(CJSON_SRC_OBJ)
 # Clean up
 .PHONY: clean
 clean:
-	rm -f $(CLIENT_EXE) $(SERVER_EXE) *.o
-
-# Optional: run targets (useful for testing)
-.PHONY: run-client run-server
-run-client: $(CLIENT_EXE)
-	./$(CLIENT_EXE)
-
-run-server: $(SERVER_EXE)
-	./$(SERVER_EXE)
+	rm -f $(SERVER_EXE) *.o
