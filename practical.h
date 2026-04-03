@@ -4,7 +4,7 @@ File: practical.h
 Project: CS395 UDP Broadcast Project
 
 File Description:
-    Defines helper functions and constants for udp_server.c and udp_client.c
+    Defines helper functions and constants for udp_server.c
 
 */
 
@@ -21,20 +21,12 @@ File Description:
 #include <netdb.h>
 #include <stdbool.h>
 #include <time.h>
-#include <sha256.h>
+#include "sha256.h"
+#include "hmac_sha256.h"
 
 extern int MAXSTRINGLENGTH;
 extern int IPV4_ADDRESS_LEN;
 extern int PORT_LEN;
-
-#define SHA256_HASH_SIZE 32
-
-struct packet {
-    struct State state; // Encrypted state.
-    u_int8_t hmac[SHA256_HASH_SIZE];
-    u_int8_t iv[16]; // Send IV in the clear.
-    u_int8_t type; // Packet type.
-};
 
 struct GPS {
     float latitude;
@@ -50,6 +42,13 @@ struct State {
     u_int16_t port;
     u_int8_t classification;
     bool isValid;
+};
+
+struct packet {
+    struct State state; // Encrypted state.
+    u_int8_t hmac[SHA256_HASH_SIZE];
+    u_int8_t iv[16]; // Send IV in the clear.
+    u_int8_t type; // Packet type.
 };
 
 void DieWithUserMessage(const char *msg, const char *detail);

@@ -1,15 +1,14 @@
 """
-    Filename: airsim_single_uav_classification.py
+    Filename: udp_airsim_single_cls.py
     Author: Cameron Lira
-    Updated: 2026-02-24
     Project: Drone Swarm Control Using SITL and Gazebo
 
     Description:
     Commands a connected drone to follow a preset path defined in the control function.
     Performs classification using images from a virtual Airsim camera and YOLO.
-    Implements a simple drone network for drone swarm coordination:
-    - Uses a simple majority-voting scheme to accomplish classification consensus.
-    - Detects distance between drones (collision avoidance to be added).
+    Uses a UDP networking backend written in C to synchronize GPS and classification labels:
+    - performs a simple majority-voting consensus scheme for classification.
+    - detects distance between drones (collision avoidance to be added).
 
     NOTE: the script is currently designed to perform YOLO classification using a YOLO model trained on the MEDIC disaster dataset.
     Minor modifications would be needed to perform other tasks.
@@ -183,29 +182,21 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe)
                 
                 # Update local state. Default to NOT_DISASTER.
                 if confidence >= DETECTION_THRESHOLD:
-                    #print(f"4 Sending new CLS to main process: {top_class}.")
                     pipe.send(top_class)
-                    #state_vector[0].set("classification", top_class)
                 else:
-                    #print("4 Sending NOT_DISASTER CLS to main process.")
                     pipe.send(Disaster.NOT_DISASTER.value)
-                    #state_vector[0].set("classification", Disaster.NOT_DISASTER.value)
-                #print("4 Receiving state_vector data from main process.")
+
                 states = pipe.recv()
-                #print(f"4 Data received: {states}.")
-                # If detected NOT_DISASTER, skip consensus.
-                # if top_class == 5:
-                #     continue
 
                 if confidence > DETECTION_THRESHOLD and top_class != Disaster.NOT_DISASTER:
                     # Check consensus.
-                    count = 1
-                    for i in range(len(states) - 1):
-                        cls = states[i+1]
+                    # TODO: determine consensus only on valid states, i.e. timeouts.
+                    count = 0
+                    for i in range(len(states)):
+                        cls = states[i]
                         if top_class == cls:
                             count += 1
 
-                    # TODO: determine consensus only on valid states, i.e. timeouts.
                     if count > (len(states) // 2):
                         print("Detected class:", Disaster(top_class).name,
                             " -- Confidence:",'{0:.2f}'.format(confidence.item()), 
@@ -546,7 +537,7 @@ def main():
     if network_enabled:
         r_local, w_local = os.pipe()
         r_vector, w_vector = os.pipe()
-        udp_server = subprocess.Popen(["./udp_server_cur", 
+        udp_server = subprocess.Popen(["./udp_server", 
                        str(args.server[0]), 
                        str(r_local),
                        str(w_vector),

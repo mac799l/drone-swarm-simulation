@@ -1,10 +1,12 @@
 /*
 Author: Cameron Lira
 File: udp_server.c
-Project: CS395 UDP Broadcast Project
-
+Project: UDP Network Backend
 Description:
-    Creates the UDP server and client.
+    Creates a UDP server/client backend for the Airsim drone simulation. Uses
+    AES-128 (tiny-aes-c by kokke) and a SHA256 HMAC (hmac_sha256 by h5p9sl)
+    to secure communications.
+    Intended to be called by udp_airsim_single_cls.py.
 
 Arguments:
 [SERVER IP:PORT] [read pipe fd] [write pipe fd] [# CLIENTS] ([CLIENT IP:PORT]s)
@@ -17,9 +19,10 @@ Arguments:
 
 #include "practical.h"
 #include "aes.h"
+#include "cJSON.h"
 #include <pthread.h>
 #include <time.h>
-#include "cJSON.h"
+
 
 void *serverThread();
 void *clientThread();
@@ -114,10 +117,6 @@ int main(int argc, char *argv[]){
         
         // Allocate a new state.
         struct State state;
-        //struct GPS *gps = (struct GPS*)malloc(sizeof(struct GPS));
-        // gps->longitude = 0.0;
-        // gps->latitude = 0.0;
-        // gps->altitude = 0.0;
         time_t now = time(NULL);
         
         // Load default state into state vector.
@@ -140,10 +139,7 @@ int main(int argc, char *argv[]){
     if (local == NULL) {
         DieWithSystemMessage("malloc memory allocation failed.\n");
     }
-    //struct GPS *gps = (struct GPS*)malloc(sizeof(struct GPS));
-    // gps->longitude = 0.0;
-    // gps->latitude = 0.0;
-    // gps->altitude = 0.0;
+
     time_t now = time(NULL);
     
     // Load default state.
@@ -160,10 +156,8 @@ int main(int argc, char *argv[]){
     // Set vector.
     local_state = local;
 
-    //state_vector = &stateVector;
     printf("Struct size: %ld bytes.\n", sizeof(struct State));
 
-    //return 0;
     pthread_t server_thread;
     pthread_t client_thread;
     pthread_t local_pipe_thread;
@@ -186,19 +180,14 @@ void *localPipeThread(void *arg){
     FILE *fp = fdopen(*(int *)arg, "r");
     setvbuf(fp, NULL, _IOLBF, 0);
     struct State *s = (struct State *) malloc(sizeof(struct State));
-    //struct GPS *gps = malloc(sizeof(struct GPS));
-    //s->gpsState = gps;
+
     while(true){
         char buf[512];
         if (fgets(buf, sizeof(buf), fp) == NULL){
-            //printf("C: fgets failed.\n");
             continue;
         }
-        //printf("C: fgets worked.\n");
 
         memset(s, 0, sizeof(struct State));
-        //memset(gps, 0, sizeof(struct GPS));
-        //s->gpsState = gps;
         // Convert JSON message to state elements (GPS, Classification, etc)
         int i = jsonToState(buf, s);
         if (i == 1){
@@ -206,8 +195,6 @@ void *localPipeThread(void *arg){
             continue;
         }
         // Update local state.
-        //printf("C: local pipe: %d, [%f, %f, %f]\n", s->classification, s->gpsState.latitude, 
-        //    s->gpsState.longitude, s->gpsState.altitude);
         pthread_mutex_lock(&local_mutex);
         local_state->gpsState.altitude = s->gpsState.altitude;
         local_state->gpsState.latitude = s->gpsState.latitude;
@@ -224,10 +211,11 @@ void *vectorPipeThread(void *arg){
     FILE *fp = fdopen(*(int *)arg, "w");
     setvbuf(fp, NULL, _IOLBF, 0);
     while(true){
+
         pthread_mutex_lock(&mutex);
         // Send each state through pipe as a JSON object.
         for(int i = 0; i < num_clients; i++){
-            //printf("C: Sending state to Python.\n");
+
             cJSON *object = stateToJson(i, &state_vector[i]);
             char *json_str = cJSON_PrintUnformatted(object);
             fprintf(fp, "%s\n", json_str);
@@ -236,21 +224,19 @@ void *vectorPipeThread(void *arg){
             free(json_str);
         }
         pthread_mutex_unlock(&mutex);
+        // TODO: convert to signaling rather than timers.
         sleep(1); 
     }
 }
 
+// Convert state struct to a JSON object.
+// For sending data to the Python script.
 cJSON *stateToJson(int id, struct State *s){
     cJSON *json = cJSON_CreateObject();
     
     cJSON_AddNumberToObject(json, "id", id);
     cJSON_AddBoolToObject(json, "is_valid", s->isValid);
-    //char ip[20];
-    //inet_ntop(AF_INET, &s->ipv4, ip, strlen(ip));
-    //cJSON_AddStringToObject(json, "ip", ip);
-    //cJSON_AddNumberToObject(json, "port", s->port);
     cJSON_AddNumberToObject(json, "seq_num", s->seqNum);
-    //cJSON_AddNumberToObject(json, "timestamp", s->timestamp);
     cJSON_AddNumberToObject(json, "classification", s->classification);
     cJSON *gps = cJSON_AddArrayToObject(json, "gps");
     cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.latitude));
@@ -260,18 +246,14 @@ cJSON *stateToJson(int id, struct State *s){
     return json;
 }
 
-
+// Convert classification and GPS of a JSON message to a state struct.
+// For receiving data from the Python script.
 int jsonToState(char *json, struct State *s){
     cJSON *parse = cJSON_Parse(json);
     if (!parse){
         return 1;
     }
 
-    //cJSON *is_valid = cJSON_GetObjectItem(parse, "is_valid");
-    //cJSON *ip = cJSON_GetObjectItem(parse, "ip");
-    //cJSON *port = cJSON_GetObjectItem(parse, "port");
-    //cJSON *seq_num = cJSON_GetObjectItem(parse, "seq_num");
-    //cJSON *timestamp = cJSON_GetObjectItem(parse, "timestamp");
     cJSON *classification = cJSON_GetObjectItem(parse, "classification");
     cJSON *gps = cJSON_GetObjectItem(parse, "gps");
 
@@ -279,18 +261,13 @@ int jsonToState(char *json, struct State *s){
     s->gpsState.longitude = cJSON_GetArrayItem(gps, 1)->valuedouble;
     s->gpsState.altitude = cJSON_GetArrayItem(gps, 2)->valuedouble;
 
-    //s->isValid = is_valid->valueint;
-    //inet_pton(AF_INET, ip->valuestring, &s->ipv4);
-    //s->port = port->valueint;
-    //s->seqNum = seq_num->valueint;
-    //s->timestamp = timestamp->valueint;
     s->classification = classification->valueint;
 
     cJSON_Delete(parse);
     return 0;
 }
 
-
+// Defines the server thread.
 void *serverThread() {
     printf("Server thread started.\n");
 
@@ -322,7 +299,6 @@ void *serverThread() {
     // Prepare for encryption/decryption.
     struct AES_ctx ctx;
 
-    //int current = 0;
     struct packet *message = (struct packet *) malloc(sizeof(struct packet));
     if (message == NULL){
         DieWithSystemMessage("malloc() failed");
@@ -331,43 +307,37 @@ void *serverThread() {
     if (rcv_state == NULL){
         DieWithSystemMessage("malloc() failed");
     }
-    //struct packet message;
+
     for (;;) { // Run forever
         struct sockaddr_storage clntAddr; // Client address
         // Set Length of client address structure (in-out parameter)
         socklen_t clntAddrLen = sizeof(clntAddr);
 
-        //char rcv_buf[sizeof(struct State)];
         // Block until receive message from a client
         ssize_t numBytesRcvd = recvfrom(sock, message, sizeof(struct packet), 0,
             (struct sockaddr *) &clntAddr, &clntAddrLen);
         if (numBytesRcvd < 0)
             DieWithSystemMessage("recvfrom() failed");
 
-        //printf("Server: Handling client: ");
-        //PrintSocketAddress((struct sockaddr *) &clntAddr, stdout);
-        //printf('\n');
-
         // Read state from message.
         *rcv_state = message->state;
 
         //Decrypt state.
         AES_init_ctx_iv(&ctx, key, iv);
-        AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)rcv_state, numBytesRcvd);
+        AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)rcv_state, sizeof(struct State));
 
-        // Create HMAC.
-        u_int8_t hmac[SHA256_HASH_SIZE];
-        memcpy(hmac, message->hmac, sizeof(struct packet));
-        //u_int8_t hmac[SHA256_HASH_SIZE] = message->hmac;
-        hmac_sha256(hmac_key, sizeof(hmac_key), (u_int8_t *)rcv_state, sizeof(struct State), hmac);
+        // Compute HMAC on decrypted state.
+        u_int8_t computedHMAC[SHA256_HASH_SIZE];
+        hmac_sha256(hmac_key, sizeof(hmac_key), (u_int8_t *)rcv_state, sizeof(struct State), computedHMAC, sizeof(computedHMAC));
         
-        if (message->hmac != hmac){
-            printf("HMAC authentication check failed!\n");
+        // Verify integrity.
+        if (memcmp(message->hmac, computedHMAC, SHA256_HASH_SIZE) != 0){
+            printf("HMAC integrity check failed!\n");
             memset(message, 0, sizeof(struct packet));
             memset(rcv_state, 0, sizeof(struct State));
             continue;
         }
-        // Interpret message.
+        // Read message.
         pthread_mutex_lock(&mutex);
         for (int i = 0; i < num_clients; i++) {
             printf("Server: check stateVector %d\n", i);
@@ -383,7 +353,7 @@ void *serverThread() {
                 }
                 else if(curr_state.seqNum < rcv_state->seqNum){
                     printf("Request new data.\n");
-                    //RequestNewData(rcv_state, curr_state.seqNum);
+                    //TODO
                 }
             }
         }
@@ -450,8 +420,8 @@ void *clientThread() {
         pthread_mutex_unlock(&local_mutex);
 
         // Create HMAC of the state and update packet struct.
-        hmac_sha256(*hmac_key, sizeof(hmac_key), (u_int8_t *)state_buf, sizeof(struct State), &message->hmac);
-        //memcpy(&message->state, state_buf, sizeof(struct State));
+        hmac_sha256(hmac_key, sizeof(hmac_key), (u_int8_t *)state_buf, sizeof(struct State), &message->hmac, sizeof(message->hmac));
+
         // TODO: add IV.
         message->state = *state_buf;
         message->type = UPDATE;
@@ -476,7 +446,7 @@ void *clientThread() {
 
             if (state_buf->isValid){
                 // Create HMAC of the state and update packet struct.
-                hmac_sha256(*hmac_key, sizeof(hmac_key), (u_int8_t *)state_buf, sizeof(struct State), &message->hmac);
+                hmac_sha256(hmac_key, sizeof(hmac_key), (u_int8_t *)state_buf, sizeof(struct State), &message->hmac, sizeof(message->hmac));
                 //memcpy(&message->state, state_buf, sizeof(struct State));
                 message->state = *state_buf;
                 message->type = UPDATE;
