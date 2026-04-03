@@ -1,4 +1,5 @@
-## Overview
+## Overview (WIP)
+
 In order to test drones in a 3D simulated environment, this guide will show the process for setting up and configuring a simple Airsim Unreal Engine environment. Unreal Engine has several advantages compared to Gazebo, such as improved graphical fidelity, weather effects, and easier environment creation. However, Gazebo is much less graphically demanding and has a much deeper robotics and simulation capability.
 
 If you are running natively on Linux, I recommend using Gazebo for the improved performance as I found Unreal Engine to be poorly optimized on Linux. 
@@ -12,7 +13,7 @@ In order to create the Airsim simulation environment as used in this guide, you 
 * Unreal Engine 5.4.4
 * Visual Studio 2022
 
-> Alternatively, Unity is supported by some versions of Airsim but is not explored in this guide.
+> Alternatively, Unity is supported by some versions of Airsim but this is not explored in this guide.
 
 If you are unfamiliar with the basics of Unreal Engine, I highly recommend following the first two tutorials published by [Unreal Sensei on Youtube](https://www.youtube.com/playlist?list=PLKPWwh_viQMGQkQfKKD5lF96efA3_RWt-). For most testing purposes, you will only need a basic understanding of the interface and controls, but depending on your needs and the environments you want to create, it may be advisable to explore further tutorials.
 

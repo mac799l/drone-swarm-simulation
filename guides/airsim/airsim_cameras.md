@@ -1,1 +1,1 @@
-We will need to make use of the AirSim API in order to access the drone cameras. This will require some minor modifications to the XXX file in order to be installed with Py since the API is not officially supported anymore. 
+# Coming soon.
