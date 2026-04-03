@@ -6,3 +6,5 @@ This is a simple networking backend written in C for the purpose of sensor data 
 AES encryption: [kokke](https://github.com/kokke)
 
 HMAC code: [h5p9sl](https://github.com/h5p9sl) and [gfabiano](https://github.com/gfabiano)
+
+JSON library: [DaveGamble](https://github.com/DaveGamble)
