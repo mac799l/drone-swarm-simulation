@@ -1,4 +1,4 @@
-# Drone Swarm Control Using SITL and Gazebo
+# Drone Swarm Simulation Airsim and Gazebo (WIP)
 
 Before testing drone control scripts or GCS (ground control station) commands in the field with real - and expensive - drones, it is possible to test in simulated environments with virtual ones first. The goal of this guide is to create scripts and techniques in a safe, virtual, and easily replicable environment - with a focus on transferability to the real world with actual drones. To that end, this guide will demonstrate the following the process:
 * Setting up a simulated environment and drone controller.
@@ -22,12 +22,12 @@ This guide was created as part of a Summer 2025 Engineering Undergraduate Resear
 ### Note:
 
 It is worth pointing out that this guide and project has been developed with very specific requirements and for particular applications:
-* One-to-one transferability to real drones.
+* Maximum transferability to real drones.
 * Disaster scenario classification and consensus.
 * Capable of running on Raspberry Pi's.
 > This guide specifically uses quadcopter drone models, but other vehicle types can be set up in a similar way.
 
-There are built-in, or simpler, ways to get a drone swarm up and running in either Gazebo or Airsim, which are well-documented. This project builds on top of these frameworks to accomplish the specific requirements listed above. There may be simpler, or better, ways to implement a drone swarm using Gazebo or Airsim. Regardless, I hope you can find something useful in this project.
+There are built-in ways to get a drone swarm up and running in either Gazebo or Airsim, which are well-documented. This project builds on top of these frameworks to accomplish the specific requirements listed above, but there may be simpler, or better, ways for you to get your swarm working using Gazebo or Airsim, at least if you don't have similar requirements as listed above. Regardless, I hope you can find something useful in this project.
 
 # Simulators
 The first step is to choose your simulated environment - Gazebo or Unreal Engine with Airsim (this guide uses the Colesseum fork) - both of which are overviewed below.
