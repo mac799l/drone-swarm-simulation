@@ -4,14 +4,14 @@
     Updated: 2025-08-13
     Project: Drone Swarm Control Using SITL and Gazebo
 
-    Description: 
-    This script commands a connected drone to follow a preset path defined in the control function. 
+    Description:
+    Commands a connected drone to follow a preset path defined in the control function.
     It also performs classification using a Gstreamer udp video source from the Ardupilot Gazebo Gstreamer plugin using YOLO and Opencv.
-    
-    NOTE: the script is currently designed to perform YOLO classification using a YOLO model trained on the MEDIC disaster dataset. 
-    Minor modifications would be needed to perform other tasks. 
 
-    Arguments: 
+    NOTE: the script is currently designed to perform YOLO classification using a YOLO model trained on the MEDIC disaster dataset.
+    Minor modifications would be needed to perform other tasks.
+
+    Arguments:
     --connect PROTOCOL:IP:PORT (provide the connection information, otherwise defaults to a serial connection).
 """
 
@@ -45,7 +45,7 @@ def connectCopter():
     parser.add_argument('--connect')
     args = parser.parse_args()
     connection = args.connect
-    
+
     # Default to a physical connection (i.e. RaspberryPi serial connection).
     if not connection:
         connection = "/dev/serial0"
@@ -74,7 +74,7 @@ def connectCamera():
 
 # Perform classification on the camera stream.
 def classificationYOLO(camera_stream, copter):
-    
+
     DETECTION_THRESHOLD = 0.5
     model = YOLO("trained_models/best.pt")
     frame_data = []
@@ -86,7 +86,7 @@ def classificationYOLO(camera_stream, copter):
         results = model.predict(source = frame, verbose = False)
         annotated_frame = results[0].plot()
         cv.imshow('Camera feed',annotated_frame)
-        
+
         probabilites = results[0].probs
         top_class = probabilites.top1
         confidence = probabilites.top1conf
@@ -114,16 +114,16 @@ def classificationYOLO(camera_stream, copter):
 def droneControl(copter):
     AIRSPEED, GROUNDSPEED = 8, 8
     copter.setHome()
-    
+
     copter.printInfo()
     copter.setSpeed(AIRSPEED,GROUNDSPEED)
-    
+
     time.sleep(1)
     copter.takeoff(50)
-    
+
     time.sleep(1)
     print("Altitude: ", copter.getAltGlobal(), "meters.")
-    
+
     copter.send_global_ned_velocity(velocity_x = 15, velocity_y = 0, velocity_z = 0, duration = 50)
     time.sleep(5)
 
@@ -137,7 +137,7 @@ def argParser():
     return
 
 def main():
-    
+
     copter_connection = connectCopter()
     camera_stream = connectCamera()
 
@@ -146,7 +146,7 @@ def main():
     drone_operations = [droneControl,classificationYOLO]
     arguments = [[copter,], [camera_stream, copter]]
     threads = []
-    
+
     for i, arg in enumerate(arguments):
         thread = threading.Thread(target=drone_operations[i], args=arg)
         threads.append(thread)
