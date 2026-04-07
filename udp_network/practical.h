@@ -1,5 +1,4 @@
 /*
-Author: Cameron Lira
 File: practical.h
 Project: CS395 UDP Broadcast Project
 
@@ -21,6 +20,7 @@ File Description:
 #include <netdb.h>
 #include <stdbool.h>
 #include <time.h>
+#include <netdb.h>
 #include "sha256.h"
 #include "hmac_sha256.h"
 
@@ -41,18 +41,25 @@ struct State {
     time_t timestamp; // TODO: change to long long before 2038.
     u_int16_t port;
     u_int8_t classification;
+    //pthread_mutex_t mutex;
     bool isValid;
 };
 
+struct node {
+    struct State state;
+    pthread_mutex_t mutex;
+};
+
 struct packet {
-    struct State state; // Encrypted state.
     u_int8_t hmac[SHA256_HASH_SIZE];
+    struct State state; // Encrypted state.
+    u_int8_t index;
     u_int8_t iv[16]; // Send IV in the clear.
     u_int8_t type; // Packet type.
+    u_int8_t sender_id;
+    u_int8_t receiver_id;
 };
 
 void DieWithUserMessage(const char *msg, const char *detail);
 
 void DieWithSystemMessage(const char *msg);
-
-//void PrintSocketAddress(const struct sockaddr *address, FILE *stream);

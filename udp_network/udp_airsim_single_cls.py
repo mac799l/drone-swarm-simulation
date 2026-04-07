@@ -59,6 +59,7 @@ import os
 
 # Stores the local and network state objects.
 state_vector = []
+my_node_id = None
 
 '''
 Enumerator of detectable classes for use by a model trained on the MEDIC disaster dataset.
@@ -404,7 +405,7 @@ async def listenServerPipe(fd):
             except json.JSONDecodeError:
                 continue
 
-            node_id = msg["id"] + 1
+            node_id = msg["id"]
 
             #print(f"Reading state update for node {node_id}")
             #print(f"Updating state vector from network process: {msg}.")
@@ -433,10 +434,11 @@ async def clsPipe(mp_pipe):
         # Recieve new classification enum.
         msg = mp_pipe.recv()
         #print(f"2 Received data from CLS process: {msg}.")
-        state_vector[0].set("classification", msg)
+        state_vector[my_node_id].set("classification", msg)
         states = []
-        for i in range(len(state_vector) - 1):
-            states.append(state_vector[i + 1].get("classification"))
+        for i in range(len(state_vector)):
+            if i != my_node_id:
+                states.append(state_vector[i].get("classification"))
         #print(f"2 Sending data to CLS process {states}.")
         mp_pipe.send(states)
 
@@ -446,11 +448,11 @@ Send local state to the network process.
 async def sendServerPipe(os_pipe):
     while True:
         
-        for _ in range(len(state_vector)):
-            #print("3 Sending data to network process:")
-            msg = stateToJSON(state_vector[0])
-            #msg = json.dumps(msg).encode() + b'\n'
-            os.write(os_pipe, msg)
+        #for _ in range(len(state_vector)):
+        #print("3 Sending data to network process:")
+        msg = stateToJSON(state_vector[my_node_id])
+        #msg = json.dumps(msg).encode() + b'\n'
+        os.write(os_pipe, msg)
         await asyncio.sleep(1) # TODO: use signals.
 
 
@@ -507,7 +509,10 @@ def main():
 
     # Initialize state vector.
     num_clients = len(clients)
-    for _ in range(num_clients + 1): # Always has a local state.
+    for i, client in enumerate(clients): # Number of nodes.
+        if f"{client[0]}:{client[1]}" == args.server[0]:
+            global my_node_id
+            my_node_id = i
         state_vector.append(initializeState())
 
     # Connect to drone instance.

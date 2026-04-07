@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -Wall -Wextra -g
-LDFLAGS = 
+LDFLAGS = -lcrypto -lssl
 
 # Sources and objects
 SERVER_SRC    = udp_server.c
