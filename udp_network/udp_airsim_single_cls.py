@@ -189,27 +189,24 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe)
 
                 states = pipe.recv()
 
-                if confidence > DETECTION_THRESHOLD and top_class != Disaster.NOT_DISASTER:
-                    # Check consensus.
-                    # TODO: determine consensus only on valid states, i.e. timeouts.
-                    count = 0
-                    for i in range(len(states)):
-                        cls = states[i]
-                        if top_class == cls:
-                            count += 1
+                # TODO: determine consensus only on valid states, i.e. timeouts.
+                majority_vote = max(set(states), key=states.count)
+                #print(f"States: {states}")
+                #print(f"Majority vote: {majority_vote} - Count: {states.count(majority_vote)}")
 
-                    if count > (len(states) // 2):
-                        print("Detected class:", Disaster(top_class).name,
-                            " -- Confidence:",'{0:.2f}'.format(confidence.item()), 
-                            " -- GPS:", location)
-                        
-                        ''' OPTIONALLY SAVE DATA.           
-                        if enum_name != frame_data[-1][1]:
-                            frame_data.append([frame, enum_name, confidence, location])
-                        elif frame_data[-1][2] < confidence:
-                            frame_data.pop()
-                            frame_data.append([frame, enum_name, confidence, location])
-                        '''
+                # Don't output if consenus is NOT_DISASTER or not a majority.
+                if majority_vote != Disaster.NOT_DISASTER.value and states.count(majority_vote) >= (len(states)):
+                    print("Detected class:", Disaster(top_class).name,
+                        " -- Confidence:",'{0:.2f}'.format(confidence.item()), 
+                        " -- GPS:", location)
+                    
+                    ''' OPTIONALLY SAVE DATA.           
+                    if enum_name != frame_data[-1][1]:
+                        frame_data.append([frame, enum_name, confidence, location])
+                    elif frame_data[-1][2] < confidence:
+                        frame_data.pop()
+                        frame_data.append([frame, enum_name, confidence, location])
+                    '''
 
                 # Press 'q' from the camera window to stop classification.
                 if cv.waitKey(1) == ord('q'):
@@ -437,8 +434,7 @@ async def clsPipe(mp_pipe):
         state_vector[my_node_id].set("classification", msg)
         states = []
         for i in range(len(state_vector)):
-            if i != my_node_id:
-                states.append(state_vector[i].get("classification"))
+            states.append(state_vector[i].get("classification"))
         #print(f"2 Sending data to CLS process {states}.")
         mp_pipe.send(states)
 

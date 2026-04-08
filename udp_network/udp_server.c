@@ -15,6 +15,7 @@ NOTE: The NODES are for each node in the network, not just the clients.
 Node IP:PORTS should be provided in order.
 */
 
+// For Tiny-AES-c.
 #define CTR 1
 #define CBC 0
 #define ECB 0
@@ -62,17 +63,18 @@ enum messageType {
 };
 
 struct node *state_vector;
-//struct State *local_state;
 int num_clients;
 char *server_ip;
 char *server_port;
 
-
+// The index/id of the local state in the state vector.
 u_int8_t my_node_id = 0;
 
 // Define matrices for directional encryption and HMAC keys.
+// To be replaced by key negotiation.
 uint8_t enc_keys[MAX_NODES][MAX_NODES][16];
 uint8_t hmac_keys[MAX_NODES][MAX_NODES][16];
+
 
 int main(int argc, char *argv[]){
 
@@ -176,101 +178,6 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-// Monitor pipe for data from Python program.
-void *localPipeThread(void *arg){
-    FILE *fp = fdopen(*(int *)arg, "r");
-    setvbuf(fp, NULL, _IOLBF, 0);
-    struct State *s = (struct State *) malloc(sizeof(struct State));
-
-    while(true){
-        char buf[512];
-        if (fgets(buf, sizeof(buf), fp) == NULL){
-            continue;
-        }
-
-        memset(s, 0, sizeof(struct State));
-        // Convert JSON message to state elements (GPS, Classification, etc)
-        int i = jsonToState(buf, s);
-        if (i == 1){
-            printf("Failed to parse JSON.\n");
-            continue;
-        }
-        // Update local state.
-        pthread_mutex_lock(&state_vector[my_node_id].mutex);
-        state_vector[my_node_id].state.gpsState.altitude = s->gpsState.altitude;
-        state_vector[my_node_id].state.gpsState.latitude = s->gpsState.latitude;
-        state_vector[my_node_id].state.gpsState.longitude = s->gpsState.longitude;
-        state_vector[my_node_id].state.classification = s->classification;
-        state_vector[my_node_id].state.timestamp = time(NULL); // Refresh timestamp.
-        state_vector[my_node_id].state.seqNum += 1; // Increment sequence.
-        pthread_mutex_unlock(&state_vector[my_node_id].mutex);
-    }
-}
-
-// Send new state vector data to Python program each second.
-// TODO: activate on signalling.
-void *vectorPipeThread(void *arg){
-    FILE *fp = fdopen(*(int *)arg, "w");
-    setvbuf(fp, NULL, _IOLBF, 0);
-    while(true){
-
-        // Send each state through pipe as a JSON object.
-        for(int i = 0; i < num_clients; i++){
-            // Don't send local state.
-            if (i == my_node_id){
-                continue;
-            }
-            pthread_mutex_lock(&state_vector[i].mutex);
-            cJSON *object = stateToJson(i, &state_vector[i].state);
-            char *json_str = cJSON_PrintUnformatted(object);
-            fprintf(fp, "%s\n", json_str);
-            fflush(fp);
-            cJSON_Delete(object);
-            free(json_str);
-            pthread_mutex_unlock(&state_vector[i].mutex);
-        }
-        // TODO: convert to signaling rather than timers.
-        sleep(1); 
-    }
-}
-
-// Convert state struct to a JSON object.
-// For sending data to the Python script.
-cJSON *stateToJson(int id, struct State *s){
-    cJSON *json = cJSON_CreateObject();
-    
-    cJSON_AddNumberToObject(json, "id", id);
-    cJSON_AddBoolToObject(json, "is_valid", s->isValid);
-    cJSON_AddNumberToObject(json, "seq_num", s->seqNum);
-    cJSON_AddNumberToObject(json, "classification", s->classification);
-    cJSON *gps = cJSON_AddArrayToObject(json, "gps");
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.latitude));
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.longitude));
-    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.altitude));
-    
-    return json;
-}
-
-// Convert classification and GPS of a JSON message to a state struct.
-// For receiving data from the Python script.
-int jsonToState(char *json, struct State *s){
-    cJSON *parse = cJSON_Parse(json);
-    if (!parse){
-        return 1;
-    }
-
-    cJSON *classification = cJSON_GetObjectItem(parse, "classification");
-    cJSON *gps = cJSON_GetObjectItem(parse, "gps");
-
-    s->gpsState.latitude = cJSON_GetArrayItem(gps, 0)->valuedouble;
-    s->gpsState.longitude = cJSON_GetArrayItem(gps, 1)->valuedouble;
-    s->gpsState.altitude = cJSON_GetArrayItem(gps, 2)->valuedouble;
-
-    s->classification = classification->valueint;
-
-    cJSON_Delete(parse);
-    return 0;
-}
 
 // Defines the server thread.
 void *serverThread() {
@@ -351,8 +258,6 @@ void *serverThread() {
         AES_init_ctx_iv(&ctx, dec_key, message->iv);
         AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)&message->state, sizeof(struct State));
 
-        printf("Server: received classification of %d\n", message->state.classification);
-
         // Process message and compare
         // received data against state vector.
         if (message->type == REQUEST) {
@@ -364,7 +269,6 @@ void *serverThread() {
             // Skip if local state.
             if (index != my_node_id) {
 
-                printf("Server: check stateVector %d\n", index);
                 pthread_mutex_lock(&state_vector[index].mutex);
                 
                 // Check if the received state is newer, otherwise ignore.
@@ -372,7 +276,7 @@ void *serverThread() {
                     
                     // Check if the recieved state is the sender's local state.
                     if (state_vector[index].state.ipv4.s_addr == message->state.ipv4.s_addr) {
-                        printf("Server: set new data.\n");
+                        //printf("Server: set new data.\n");
                         state_vector[index].state = message->state;
                     }
                     else { // Sender has newer info from another node.
@@ -389,33 +293,25 @@ void *serverThread() {
     // NOT REACHED
 }
 
-// Used for debugging purposes.
-void printStructBytes(void *ptr, size_t size) {
-    uint8_t *bytes = (uint8_t *)ptr;
-
-    for (size_t i = 0; i < size; i++) {
-        printf("%02X ", bytes[i]);
-    }
-    printf("\n");
-}
 
 void *clientThread() {
     printf("Client thread started.\n");
-    // Tell the system what kind(s) of address info we want
-    struct addrinfo addrCriteria; // Criteria for address match
-    memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure
+
+    struct addrinfo addrCriteria; // Criteria for address match.
+    memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure.
     addrCriteria.ai_family = AF_INET; // IPV4 address family.
 
-    // For the following fields, a zero value means "don't care"
-    addrCriteria.ai_socktype = SOCK_DGRAM; // Only datagram sockets
-    addrCriteria.ai_protocol = IPPROTO_UDP; // Only UDP protocol
+    addrCriteria.ai_socktype = SOCK_DGRAM; // Only datagram sockets.
+    addrCriteria.ai_protocol = IPPROTO_UDP; // Only UDP protocol.
 
-    // Create a datagram/UDP socket
+    // Create socket.
     int sock = socket(addrCriteria.ai_family, addrCriteria.ai_socktype,
     addrCriteria.ai_protocol); // Socket descriptor for client
-    if (sock < 0)
+    if (sock < 0){
         DieWithSystemMessage("socket() failed");
+    }
     
+    // For cycling through state vector.
     int current = 0;
 
     struct AES_ctx ctx;
@@ -436,9 +332,12 @@ void *clientThread() {
         char curr_ip[INET_ADDRSTRLEN];
         char curr_port[20];
 
+        // Get the IP and port of the current client.
         pthread_mutex_lock(&state_vector[current].mutex);
+
         sprintf(curr_port, "%d", state_vector[current].state.port);
         inet_ntop(AF_INET, &state_vector[current].state.ipv4, curr_ip, sizeof(curr_ip));
+
         pthread_mutex_unlock(&state_vector[current].mutex);
 
         struct addrinfo *serverAddr; // List of server addresses
@@ -446,7 +345,7 @@ void *clientThread() {
         if (rtnVal != 0)
             DieWithUserMessage("getaddrinfo() failed", gai_strerror(rtnVal));
         
-        // Send all states to node.
+        // Send all states to node 'current'.
         for (u_int8_t i = 0; i < num_clients; i++){
             if (i == current) {
                 continue;   // skip sending receiver its own state
@@ -470,7 +369,6 @@ void *clientThread() {
                 enc_key = enc_keys[my_node_id][current];
                 mac_key = hmac_keys[my_node_id][current];
 
-                printf("Client: sending classification of %d\n", message->state.classification);
                 // Encrypt state and store in packet struct.
                 AES_init_ctx_iv(&ctx, enc_key, message->iv);
                 AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)&message->state, sizeof(struct State));
@@ -478,7 +376,7 @@ void *clientThread() {
                 // Create HMAC of the state and update packet struct.
                 hmac_sha256(mac_key, HMAC_KEY_SIZE, (u_int8_t *)message + SHA256_HASH_SIZE, sizeof(struct packet) - SHA256_HASH_SIZE, &message->hmac, SHA256_HASH_SIZE);
 
-                // Send message (containing local state).
+                // Send encrypted state.
                 ssize_t numBytes = sendto(sock, message, sizeof(struct packet), 0,
                 serverAddr->ai_addr, serverAddr->ai_addrlen);
                 if (numBytes < 0)
@@ -493,6 +391,108 @@ void *clientThread() {
         sleep(1);
     }
 }
+
+
+// Monitor pipe for data from the Python program.
+void *localPipeThread(void *arg){
+    FILE *fp = fdopen(*(int *)arg, "r");
+    setvbuf(fp, NULL, _IOLBF, 0);
+    struct State *s = (struct State *) malloc(sizeof(struct State));
+
+    while(true){
+        char buf[512];
+        if (fgets(buf, sizeof(buf), fp) == NULL){
+            continue;
+        }
+        // Reset struct.
+        memset(s, 0, sizeof(struct State));
+
+        // Convert JSON message to state elements (GPS, Classification, etc)
+        int i = jsonToState(buf, s);
+        if (i == 1){
+            printf("Failed to parse JSON.\n");
+            continue;
+        }
+        // Update local state.
+        pthread_mutex_lock(&state_vector[my_node_id].mutex);
+        state_vector[my_node_id].state.gpsState.altitude = s->gpsState.altitude;
+        state_vector[my_node_id].state.gpsState.latitude = s->gpsState.latitude;
+        state_vector[my_node_id].state.gpsState.longitude = s->gpsState.longitude;
+        state_vector[my_node_id].state.classification = s->classification;
+        state_vector[my_node_id].state.timestamp = time(NULL); // Refresh timestamp.
+        state_vector[my_node_id].state.seqNum += 1; // Increment sequence.
+        pthread_mutex_unlock(&state_vector[my_node_id].mutex);
+    }
+}
+
+
+// Send new state vector data to Python program each second.
+// TODO: activate on signalling.
+void *vectorPipeThread(void *arg){
+    FILE *fp = fdopen(*(int *)arg, "w");
+    setvbuf(fp, NULL, _IOLBF, 0);
+    while(true){
+
+        // Send each state through pipe as a JSON object.
+        for(int i = 0; i < num_clients; i++){
+            // Don't send local state.
+            if (i == my_node_id){
+                continue;
+            }
+            pthread_mutex_lock(&state_vector[i].mutex);
+            cJSON *object = stateToJson(i, &state_vector[i].state);
+            char *json_str = cJSON_PrintUnformatted(object);
+            fprintf(fp, "%s\n", json_str);
+            fflush(fp);
+            cJSON_Delete(object);
+            free(json_str);
+            pthread_mutex_unlock(&state_vector[i].mutex);
+        }
+        // TODO: convert to signaling rather than timers.
+        sleep(1); 
+    }
+}
+
+
+// Convert state struct to a JSON object.
+// For sending data to the Python script.
+cJSON *stateToJson(int id, struct State *s){
+    cJSON *json = cJSON_CreateObject();
+    
+    cJSON_AddNumberToObject(json, "id", id);
+    cJSON_AddBoolToObject(json, "is_valid", s->isValid);
+    cJSON_AddNumberToObject(json, "seq_num", s->seqNum);
+    cJSON_AddNumberToObject(json, "classification", s->classification);
+    cJSON *gps = cJSON_AddArrayToObject(json, "gps");
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.latitude));
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.longitude));
+    cJSON_AddItemToArray(gps, cJSON_CreateNumber(s->gpsState.altitude));
+    
+    return json;
+}
+
+
+// Convert classification and GPS of a JSON message to a state struct.
+// For receiving data from the Python script.
+int jsonToState(char *json, struct State *s){
+    cJSON *parse = cJSON_Parse(json);
+    if (!parse){
+        return 1;
+    }
+
+    cJSON *classification = cJSON_GetObjectItem(parse, "classification");
+    cJSON *gps = cJSON_GetObjectItem(parse, "gps");
+
+    s->gpsState.latitude = cJSON_GetArrayItem(gps, 0)->valuedouble;
+    s->gpsState.longitude = cJSON_GetArrayItem(gps, 1)->valuedouble;
+    s->gpsState.altitude = cJSON_GetArrayItem(gps, 2)->valuedouble;
+
+    s->classification = classification->valueint;
+
+    cJSON_Delete(parse);
+    return 0;
+}
+
 
 // Generate the key matrices (FOR TESTING ONLY)
 void initializeKeys(void) {
@@ -511,6 +511,18 @@ void initializeKeys(void) {
         }
     }
 }
+
+
+// Used for debugging purposes.
+void printStructBytes(void *ptr, size_t size) {
+    uint8_t *bytes = (uint8_t *)ptr;
+
+    for (size_t i = 0; i < size; i++) {
+        printf("%02X ", bytes[i]);
+    }
+    printf("\n");
+}
+
 
 // Generate random IV of AES_BLOCKLEN bytes.
 void generateRandomIV(u_int8_t *iv){
