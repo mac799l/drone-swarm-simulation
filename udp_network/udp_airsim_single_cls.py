@@ -110,11 +110,11 @@ def initializeState():
 '''
 Connect to a drone instance (i.e. SITL forwarded connection, or physical connection).
 '''
-def connectCopter(CONNECTION):
+def connectCopter(connection):
 
-    print(f"Connecting to: {CONNECTION}")
+    print(f"Connecting to: {connection}")
 
-    copter = connect(CONNECTION, wait_ready=True)
+    copter = connect(connection, wait_ready=True)
     return copter
 
 
@@ -122,9 +122,9 @@ def connectCopter(CONNECTION):
 Connect to the Airsim environment using the Airsim API.
 Used for drone camera access.
 '''
-def connectAirsim(AIRSIM_IP):
+def connectAirsim(airsim_ip):
 
-    client = airsim.MultirotorClient(ip=AIRSIM_IP)
+    client = airsim.MultirotorClient(ip=airsim_ip)
     client.confirmConnection()
     client.enableApiControl(True)
     return client
@@ -136,18 +136,18 @@ Read camera inputs from an Airsim simulation and
     a. with network consensus
     b. without network consensus.
 '''
-def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe):
+def classificationYOLO(copter, airsim_ip, model_path, use_consensus, airsim_name, pipe):
 
-    if not NAME or not AIRSIM_IP:
+    if not airsim_name or not airsim_ip:
         print("No name provided")
-    airsim_client = connectAirsim(AIRSIM_IP)
+    airsim_client = connectAirsim(airsim_ip)
     print("Camera connected.")
-    print(f"USE_CONSENSUS: {USE_CONSENSUS}")
+    print(f"USE_CONSENSUS: {use_consensus}")
 
     # 1. Display images without classification.
-    if not MODEL_PATH:
+    if not model_path:
         while True:
-            frame = airsim_client.simGetImage('0', airsim.ImageType.Scene, vehicle_name=NAME)
+            frame = airsim_client.simGetImage('0', airsim.ImageType.Scene, vehicle_name=airsim_name)
             nparr = np.frombuffer(frame, np.uint8)
             img = cv.imdecode(nparr, cv.IMREAD_COLOR)
             cv.imshow('Camera feed',annotated_frame)
@@ -159,16 +159,16 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe)
     # 2. Display images with classification.
     else:
         DETECTION_THRESHOLD = 0.5 # 50% confidence threshold.
-        model = YOLO(MODEL_PATH)
+        model = YOLO(model_path)
         # Save data to a list (optional)
         # frame_data = []
         # frame_data.append([0,'NOT_DISASTER', 0, [0,0,0]])
         consensus_reached = True
 
         # a. Display classification with networking consensus features.
-        if USE_CONSENSUS:
+        if use_consensus:
             while True:
-                frame = airsim_client.simGetImage('0', airsim.ImageType.Scene, vehicle_name=NAME)
+                frame = airsim_client.simGetImage('0', airsim.ImageType.Scene, vehicle_name=airsim_name)
                 nparr = np.frombuffer(frame, np.uint8)
                 img = cv.imdecode(nparr, cv.IMREAD_COLOR)
 
@@ -215,7 +215,7 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe)
         # b. Display classification without using consensus.
         else:
             while True:
-                frame = airsim_client.simGetImage('0', airsim.ImageType.Scene, vehicle_name=NAME)
+                frame = airsim_client.simGetImage('0', airsim.ImageType.Scene, vehicle_name=airsim_name)
                 nparr = np.frombuffer(frame, np.uint8)
                 img = cv.imdecode(nparr, cv.IMREAD_COLOR)
 
@@ -236,7 +236,9 @@ def classificationYOLO(copter, AIRSIM_IP, MODEL_PATH, USE_CONSENSUS, NAME, pipe)
                 else:
                     pipe.send(Disaster.NOT_DISASTER.value)
                     #state_vector[0].set("classification", Disaster.NOT_DISASTER.value)
-                states = pipe.recv()
+
+                states = pipe.recv() # Not used.
+                
                 if confidence > DETECTION_THRESHOLD:
                     print("Detected class:", enum_name ,
                           " -- Confidence:",'{0:.2f}'.format(confidence.item()), 
