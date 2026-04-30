@@ -23,6 +23,7 @@ File Description:
 #include <netdb.h>
 #include "sha256.h"
 #include "hmac_sha256.h"
+#include <pthread.h>
 
 extern int MAXSTRINGLENGTH;
 extern int IPV4_ADDRESS_LEN;
